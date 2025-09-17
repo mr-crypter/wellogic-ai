@@ -8,23 +8,11 @@ interface TopicsAnalysisChartProps {
   timeRange: string
 }
 
-// Mock data - replace with real data from AI analysis
-const mockTopics = [
-  { topic: "Personal Growth", count: 45, percentage: 35, trend: "up" },
-  { topic: "Work & Career", count: 32, percentage: 25, trend: "stable" },
-  { topic: "Relationships", count: 28, percentage: 22, trend: "up" },
-  { topic: "Health & Wellness", count: 18, percentage: 14, trend: "down" },
-  { topic: "Hobbies & Interests", count: 12, percentage: 9, trend: "up" },
-  { topic: "Travel & Adventure", count: 8, percentage: 6, trend: "stable" },
-  { topic: "Financial Goals", count: 6, percentage: 5, trend: "up" },
-  { topic: "Learning & Education", count: 4, percentage: 3, trend: "stable" },
-]
+// No sample topics — provide empty defaults until AI data is wired
+const mockTopics: { topic: string; count: number; percentage: number; trend: "up"|"down"|"stable" }[] = []
 
-const sentimentData = [
-  { sentiment: "Positive", count: 89, percentage: 70, color: "bg-green-500" },
-  { sentiment: "Neutral", count: 28, percentage: 22, color: "bg-yellow-500" },
-  { sentiment: "Negative", count: 10, percentage: 8, color: "bg-red-500" },
-]
+// No sample sentiment — provide empty defaults
+const sentimentData: { sentiment: string; count: number; percentage: number; color: string }[] = []
 
 export function TopicsAnalysisChart({ timeRange }: TopicsAnalysisChartProps) {
   return (
@@ -35,6 +23,9 @@ export function TopicsAnalysisChart({ timeRange }: TopicsAnalysisChartProps) {
           <CardDescription>AI-identified themes in your journal entries</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {mockTopics.length === 0 && (
+            <div className="text-sm text-muted-foreground">No topic analysis yet.</div>
+          )}
           {mockTopics.map((topic) => (
             <div key={topic.topic} className="space-y-2">
               <div className="flex items-center justify-between">
@@ -59,6 +50,9 @@ export function TopicsAnalysisChart({ timeRange }: TopicsAnalysisChartProps) {
           <CardDescription>Overall emotional tone of your entries</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {sentimentData.length === 0 && (
+            <div className="text-sm text-muted-foreground">No sentiment data yet.</div>
+          )}
           {sentimentData.map((sentiment) => (
             <div key={sentiment.sentiment} className="space-y-2">
               <div className="flex items-center justify-between">
@@ -77,12 +71,14 @@ export function TopicsAnalysisChart({ timeRange }: TopicsAnalysisChartProps) {
             </div>
           ))}
 
-          <div className="pt-4 border-t">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-500">7.2/10</div>
-              <div className="text-sm text-muted-foreground">Average Sentiment Score</div>
+          {sentimentData.length > 0 && (
+            <div className="pt-4 border-t">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-500">7.2/10</div>
+                <div className="text-sm text-muted-foreground">Average Sentiment Score</div>
+              </div>
             </div>
-          </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -5,6 +5,7 @@ import notesRouter from "./routes/notes";
 import moodsRouter from "./routes/moods";
 import reportsRouter from "./routes/reports";
 import aiRouter from "./routes/ai";
+import authRouter from "./routes/auth";
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use("/api/v1/notes", notesRouter);
 app.use("/api/v1/moods", moodsRouter);
 app.use("/api/v1/reports", reportsRouter);
 app.use("/api/ai", aiRouter);
+app.use("/api/auth", authRouter);
 
 const PORT = Number(process.env.PORT) || 4000;
 app.listen(PORT, () => {

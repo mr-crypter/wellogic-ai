@@ -1,15 +1,25 @@
 -- Schema for AI Journal
 
+CREATE TABLE IF NOT EXISTS users (
+	id SERIAL PRIMARY KEY,
+	email TEXT NOT NULL UNIQUE,
+	password_hash TEXT NOT NULL,
+	nickname TEXT,
+	avatar_url TEXT,
+	avatar_name TEXT,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS notes (
 	id SERIAL PRIMARY KEY,
-	user_id INTEGER DEFAULT 1,
+	user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
 	content TEXT NOT NULL,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS moods (
 	id SERIAL PRIMARY KEY,
-	user_id INTEGER DEFAULT 1,
+	user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
 	mood_score INT NOT NULL CHECK (mood_score BETWEEN 1 AND 10),
 	productivity_score INT NOT NULL CHECK (productivity_score BETWEEN 1 AND 10),
 	date DATE NOT NULL,

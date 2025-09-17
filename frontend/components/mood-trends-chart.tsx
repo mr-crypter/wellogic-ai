@@ -7,24 +7,8 @@ interface MoodTrendsChartProps {
   timeRange: string
 }
 
-// Mock data - replace with real data from Supabase
-const mockData = [
-  { date: "Jan 1", mood: 7, entries: 2 },
-  { date: "Jan 2", mood: 6, entries: 1 },
-  { date: "Jan 3", mood: 8, entries: 3 },
-  { date: "Jan 4", mood: 7, entries: 1 },
-  { date: "Jan 5", mood: 9, entries: 2 },
-  { date: "Jan 6", mood: 6, entries: 1 },
-  { date: "Jan 7", mood: 8, entries: 2 },
-  { date: "Jan 8", mood: 7, entries: 1 },
-  { date: "Jan 9", mood: 8, entries: 3 },
-  { date: "Jan 10", mood: 9, entries: 2 },
-  { date: "Jan 11", mood: 7, entries: 1 },
-  { date: "Jan 12", mood: 8, entries: 2 },
-  { date: "Jan 13", mood: 6, entries: 1 },
-  { date: "Jan 14", mood: 9, entries: 3 },
-  { date: "Jan 15", mood: 8, entries: 2 },
-]
+// No sample data — start empty until wired to backend
+const mockData: { date: string; mood: number; entries: number }[] = []
 
 export function MoodTrendsChart({ timeRange }: MoodTrendsChartProps) {
   return (

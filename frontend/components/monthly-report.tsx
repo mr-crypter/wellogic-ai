@@ -9,28 +9,16 @@ interface MonthlyReportProps {
 }
 
 export function MonthlyReport({ reportId }: MonthlyReportProps) {
-  // Mock data - replace with real AI-generated report data
+  // Empty defaults until reports are connected
   const reportData = {
-    period: "December 2023",
-    totalEntries: 28,
-    totalWords: 12450,
-    averageMood: 7.5,
-    moodImprovement: "+12%",
-    majorThemes: [
-      { theme: "Career Growth", mentions: 15, trend: "up" },
-      { theme: "Family Relationships", mentions: 12, trend: "stable" },
-      { theme: "Personal Health", mentions: 8, trend: "down" },
-    ],
-    achievements: [
-      "Maintained consistent journaling for 25 out of 31 days",
-      "Showed significant improvement in handling work stress",
-      "Developed clearer long-term career goals",
-    ],
-    areasForGrowth: [
-      "Health and wellness could use more attention",
-      "Social connections mentioned less frequently",
-      "Financial planning rarely discussed",
-    ],
+    period: "",
+    totalEntries: 0,
+    totalWords: 0,
+    averageMood: 0,
+    moodImprovement: "",
+    majorThemes: [] as { theme: string; mentions: number; trend: "up"|"down"|"stable" }[],
+    achievements: [] as string[],
+    areasForGrowth: [] as string[],
   }
 
   return (
@@ -44,7 +32,7 @@ export function MonthlyReport({ reportId }: MonthlyReportProps) {
                 <Calendar className="w-5 h-5" />
                 Monthly Deep Dive
               </CardTitle>
-              <CardDescription>{reportData.period}</CardDescription>
+              <CardDescription>{reportData.period || ""}</CardDescription>
             </div>
             <Badge variant="default" className="bg-purple-500">
               Comprehensive Analysis
@@ -58,7 +46,7 @@ export function MonthlyReport({ reportId }: MonthlyReportProps) {
               <div className="text-sm text-muted-foreground">Total Entries</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{reportData.totalWords.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-primary">{reportData.totalWords.toLocaleString?.() ?? reportData.totalWords}</div>
               <div className="text-sm text-muted-foreground">Words Written</div>
             </div>
             <div className="text-center">
@@ -81,6 +69,9 @@ export function MonthlyReport({ reportId }: MonthlyReportProps) {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {reportData.majorThemes.length === 0 && (
+              <div className="text-sm text-muted-foreground">No themes yet.</div>
+            )}
             {reportData.majorThemes.map((item) => (
               <div key={item.theme} className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
@@ -108,6 +99,9 @@ export function MonthlyReport({ reportId }: MonthlyReportProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {reportData.achievements.length === 0 && (
+                <div className="text-sm text-muted-foreground">No achievements yet.</div>
+              )}
               {reportData.achievements.map((achievement, index) => (
                 <div key={index} className="flex items-start gap-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
@@ -128,6 +122,9 @@ export function MonthlyReport({ reportId }: MonthlyReportProps) {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {reportData.areasForGrowth.length === 0 && (
+                <div className="text-sm text-muted-foreground">No growth areas yet.</div>
+              )}
               {reportData.areasForGrowth.map((area, index) => (
                 <div key={index} className="flex items-start gap-3">
                   <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0" />

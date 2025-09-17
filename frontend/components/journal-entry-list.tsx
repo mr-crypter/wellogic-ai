@@ -23,38 +23,8 @@ interface JournalEntryListProps {
   selectedTags: string[]
 }
 
-// Mock data - replace with real data from Supabase
-const mockEntries: JournalEntry[] = [
-  {
-    id: "1",
-    title: "A Great Day at Work",
-    content:
-      "Today was incredibly productive. I finished the project I've been working on for weeks, and the client feedback was overwhelmingly positive. I feel a real sense of accomplishment and pride in what I've created. The team collaboration was seamless, and I learned so much from my colleagues...",
-    mood: "happy",
-    tags: ["work", "achievement", "gratitude"],
-    createdAt: "2024-01-15T10:30:00Z",
-    aiInsights: ["Strong positive sentiment detected", "Achievement theme identified"],
-  },
-  {
-    id: "2",
-    content:
-      "Feeling a bit overwhelmed with all the tasks on my plate. Need to prioritize better and maybe delegate some responsibilities. Taking deep breaths and focusing on one thing at a time.",
-    mood: "stressed",
-    tags: ["work", "stress", "reflection"],
-    createdAt: "2024-01-14T16:45:00Z",
-    aiInsights: ["Stress indicators present", "Self-awareness and coping strategies mentioned"],
-  },
-  {
-    id: "3",
-    title: "Weekend Reflections",
-    content:
-      "Spent quality time with family this weekend. We went hiking and had a picnic. These moments remind me what's truly important in life. I want to make more time for these experiences.",
-    mood: "content",
-    tags: ["family", "nature", "gratitude", "reflection"],
-    createdAt: "2024-01-13T20:15:00Z",
-    aiInsights: ["Family values emphasized", "Work-life balance theme"],
-  },
-]
+// No sample data — start with an empty list until real data is wired
+const initialEntries: JournalEntry[] = []
 
 const moodIcons = {
   happy: <Smile className="w-4 h-4 text-green-500" />,
@@ -66,7 +36,7 @@ const moodIcons = {
 }
 
 export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryListProps) {
-  const [entries] = useState<JournalEntry[]>(mockEntries)
+  const [entries] = useState<JournalEntry[]>(initialEntries)
 
   const filteredEntries = entries.filter((entry) => {
     const matchesSearch =

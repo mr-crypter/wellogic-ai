@@ -24,4 +24,25 @@ export async function getAiSummary(params: { content: string; mood?: number; pro
 	return (await res.json()) as { summary: string };
 }
 
+// Auth API
+export async function apiLogin(params: { email: string; password: string }) {
+  const res = await fetch(`${API_BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(`Login failed: ${res.status}`);
+  return (await res.json()) as { token: string; user: any };
+}
+
+export async function apiSignup(params: { email: string; password: string; nickname?: string; avatar_url?: string; avatar_name?: string }) {
+  const res = await fetch(`${API_BASE}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(`Signup failed: ${res.status}`);
+  return (await res.json()) as { token: string; user: any };
+}
+
 
