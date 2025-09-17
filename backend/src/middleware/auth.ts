@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import { findSessionByToken } from "../models/sessions";
+import { findSessionByToken } from "../models/sessions.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const JWT_ISSUER = process.env.JWT_ISSUER || "ai-journal-backend";

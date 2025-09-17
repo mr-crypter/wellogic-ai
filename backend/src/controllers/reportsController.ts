@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
-import { listNotesByDate } from "../models/notes";
-import { getMoodByDate } from "../models/moods";
-import { getSummaryByNoteId } from "../models/summaries";
-import { getWeeklyOverview } from "../services/trendService";
+import { listNotesByDate } from "../models/notes.js";
+import { getMoodByDate } from "../models/moods.js";
+import { getSummaryByNoteId } from "../models/summaries.js";
+import { getWeeklyOverview } from "../services/trendService.js";
 
 export async function getDailyReport(req: Request, res: Response) {
 	try {

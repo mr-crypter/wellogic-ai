@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { generateSummaryWithGemini } from "../services/aiService";
+import { generateSummaryWithGemini } from "../services/aiService.js";
 
 export async function postAiSummary(req: Request, res: Response) {
 	try {

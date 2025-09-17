@@ -1,4 +1,4 @@
-import { query } from "./db";
+import { query } from "./db.js";
 import crypto from "crypto";
 
 export interface SessionRow {

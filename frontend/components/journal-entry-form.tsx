@@ -49,9 +49,9 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
     setIsSaving(true)
     try {
       const today = new Date().toISOString().slice(0, 10)
-      const moodScore = Number(mood) || 0
-      const productivityScore = Number(productivity) || 0
-      await createNote({ content, mood_score: moodScore, productivity_score: productivityScore, date: today })
+      const moodScore = mood.trim() === "" ? undefined : Number(mood)
+      const productivityScore = productivity.trim() === "" ? undefined : Number(productivity)
+      await createNote({ content, mood_score: moodScore as any, productivity_score: productivityScore as any, date: today })
       onClose()
     } catch (e) {
       console.error(e)
@@ -122,11 +122,11 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
 
         {/* Mood & Productivity */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">How are you feeling?</label>
+          <label className="text-sm font-medium">How are you feeling? <span className="text-muted-foreground">(optional)</span></label>
           <MoodSelector value={mood} onChange={setMood} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Productivity (0-10)</label>
+          <label className="text-sm font-medium">Productivity (0-10) <span className="text-muted-foreground">(optional)</span></label>
           <Input placeholder="8" value={productivity} onChange={(e) => setProductivity(e.target.value)} />
         </div>
 

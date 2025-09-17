@@ -60,6 +60,19 @@ export default function AuthPage() {
     setIsLoading(true)
 
     try {
+      // Basic client-side password guidance
+      const weak = [] as string[]
+      if (formData.password.length < 12) weak.push("Use at least 12 characters")
+      if (!/[a-z]/.test(formData.password)) weak.push("Add a lowercase letter")
+      if (!/[A-Z]/.test(formData.password)) weak.push("Add an uppercase letter")
+      if (!/[0-9]/.test(formData.password)) weak.push("Add a number")
+      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(formData.password)) weak.push("Add a special character")
+      if (weak.length) {
+        alert(`Please strengthen your password:\n- ${weak.join("\n- ")}`)
+        setIsLoading(false)
+        return
+      }
+
       const data = await apiSignup({
         email: formData.email,
         password: formData.password,

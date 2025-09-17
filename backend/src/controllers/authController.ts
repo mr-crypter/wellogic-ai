@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { createUser, findUserByEmail } from "../models/users";
-import { createSession, findSessionByToken } from "../models/sessions";
+import { createUser, findUserByEmail } from "../models/users.js";
+import { createSession, findSessionByToken } from "../models/sessions.js";
+import { validatePasswordStrength } from "../utils/password.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev_secret_change_me";
 const JWT_ISSUER = process.env.JWT_ISSUER || "ai-journal-backend";
@@ -14,6 +15,11 @@ export async function signup(req: Request, res: Response) {
       email?: string; password?: string; nickname?: string; avatar_url?: string; avatar_name?: string;
     };
     if (!email || !password) return res.status(400).json({ message: "email and password are required" });
+
+    const strength = validatePasswordStrength(password, email);
+    if (!strength.ok) {
+      return res.status(400).json({ message: "weak password", details: strength.errors });
+    }
 
     const existing = await findUserByEmail(email);
     if (existing) return res.status(409).json({ message: "user already exists" });

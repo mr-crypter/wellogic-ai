@@ -1,4 +1,4 @@
-import { query } from "../models/db";
+import { query } from "../models/db.js";
 
 export interface WeeklyOverviewRow {
 	date: string;

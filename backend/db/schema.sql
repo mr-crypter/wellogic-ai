@@ -41,8 +41,22 @@ CREATE TABLE IF NOT EXISTS sessions (
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Embeddings for semantic retrieval (RAG)
+CREATE TABLE IF NOT EXISTS note_embeddings (
+	id SERIAL PRIMARY KEY,
+	note_id INTEGER NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+	user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+	embedding TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Helpful indexes
 CREATE INDEX IF NOT EXISTS idx_moods_date ON moods(date);
 CREATE INDEX IF NOT EXISTS idx_notes_created_at ON notes(created_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
+-- Additional composite indexes for faster joins/filters
+CREATE INDEX IF NOT EXISTS idx_notes_user_created_at ON notes(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_moods_user_date ON moods(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_summaries_note_created_at ON summaries(note_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_note_embeddings_note_id ON note_embeddings(note_id);

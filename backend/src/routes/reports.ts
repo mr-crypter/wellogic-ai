@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getDailyReport, getWeeklyReport } from "../controllers/reportsController";
+import { getDailyReport, getWeeklyReport } from "../controllers/reportsController.js";
 
 const router = Router();
 

@@ -1,6 +1,7 @@
 // Gemini integration
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const GEMINI_EMBED_MODEL = process.env.GEMINI_EMBED_MODEL || "text-embedding-004";
 
 export interface GeminiSummaryInput {
 	content: string;
@@ -12,13 +13,31 @@ export async function generateSummaryWithGemini({ content, mood, productivity }:
 	if (!GEMINI_API_KEY) {
 		throw new Error("GEMINI_API_KEY is not set");
 	}
-	const prompt = [
-		"You are an assistant that writes concise daily journal summaries.",
-		"Summarize the note in 2-3 sentences, focusing on mood, productivity, and key events.",
-		mood != null && productivity != null ? `User-reported mood: ${mood}/10, productivity: ${productivity}/10.` : undefined,
-		"Note:",
-		content
-	].filter(Boolean).join("\n");
+    const retrievedContext = ""; // TODO: add semantic retrieval context
+    const prompt = [
+        "You are an AI journaling assistant that summarizes and interprets daily journal entries.",
+        "Write a reflective summary (2–4 sentences) that captures:",
+        "- The user's overall mood and productivity, inferred from the tone and content of the writing (not only explicit scores).",
+        "- Key events or activities described in the entry.",
+        "- Any emerging trends or patterns compared to previous entries.",
+        "",
+        "Context: Here are the most relevant past notes (retrieved via semantic search):",
+        retrievedContext || "No past entries available.",
+        "",
+        "Today's entry:",
+        content,
+        mood != null && productivity != null
+            ? `User self-reported mood: ${mood}/10, productivity: ${productivity}/10. (Use as context only; still infer your own ratings.)`
+            : "No explicit mood/productivity rating provided today.",
+        "",
+        "Instructions:",
+        "- Use the past context to detect continuity, changes in emotional tone, or repeated themes.",
+        "- If the journal suggests stress, joy, or hidden emotions, gently surface them in the summary.",
+        "- Avoid generic rephrasing. Highlight unique details or behavioral patterns.",
+        "- Infer mood and productivity on a 1–10 scale from the writing itself.",
+        "- End your response with a single line: \"Mood: X/10, Productivity: Y/10\" using your inferred ratings.",
+        "- Write in a warm, human tone, as if the journal is reflecting back to the user."
+    ].filter(Boolean).join("\n");
 
 	const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 

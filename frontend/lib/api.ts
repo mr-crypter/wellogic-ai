@@ -4,7 +4,7 @@ export interface CreateNoteResponse {
 	note: { id: number; content: string; created_at: string };
 }
 
-export async function createNote(params: { content: string; mood_score: number; productivity_score: number; date: string; }) {
+export async function createNote(params: { content: string; mood_score?: number; productivity_score?: number; date: string; }) {
     const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
     const res = await fetch(`${API_BASE}/api/v1/notes`, {
 		method: "POST",

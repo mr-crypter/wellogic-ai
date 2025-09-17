@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { createMood, getDailyAverages } from "../models/moods";
+import { createMood, getDailyAverages } from "../models/moods.js";
 
 export async function postMood(req: Request, res: Response) {
 	try {

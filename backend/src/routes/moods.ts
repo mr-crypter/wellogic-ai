@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { postMood, getTrends } from "../controllers/moodsController";
-import { requireAuth } from "../middleware/auth";
+import { postMood, getTrends } from "../controllers/moodsController.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
