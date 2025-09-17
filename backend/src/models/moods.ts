@@ -5,13 +5,14 @@ export interface MoodRow {
 	date: string;
 	mood_score: number;
 	productivity_score: number;
+    user_id?: number | null;
 	created_at?: string;
 }
 
-export async function createMood({ date, mood_score, productivity_score }: { date: string; mood_score: number; productivity_score: number; }): Promise<MoodRow> {
+export async function createMood({ date, mood_score, productivity_score, user_id }: { date: string; mood_score: number; productivity_score: number; user_id?: number | null; }): Promise<MoodRow> {
 	const result = await query<MoodRow>(
-		"INSERT INTO moods (date, mood_score, productivity_score) VALUES ($1, $2, $3) RETURNING id, date, mood_score, productivity_score, created_at",
-		[date, mood_score, productivity_score]
+        "INSERT INTO moods (date, mood_score, productivity_score, user_id) VALUES ($1, $2, $3, $4) RETURNING id, date, mood_score, productivity_score, user_id, created_at",
+        [date, mood_score, productivity_score, user_id ?? null]
 	);
 	return result.rows[0];
 }

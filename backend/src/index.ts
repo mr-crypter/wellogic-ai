@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import notesRouter from "./routes/notes";
 import moodsRouter from "./routes/moods";
@@ -10,7 +11,13 @@ import authRouter from "./routes/auth";
 dotenv.config();
 
 const app = express();
-app.use(cors());
+app.use(helmet({
+	contentSecurityPolicy: false
+}));
+app.use(cors({
+	origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000"],
+	credentials: true,
+}));
 app.use(express.json());
 
 app.get("/api/v1/health", (req: Request, res: Response) => {

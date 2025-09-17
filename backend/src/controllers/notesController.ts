@@ -1,9 +1,10 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { createNote, listNotesByDate } from "../models/notes";
 import { createMood } from "../models/moods";
+import { AuthenticatedRequest } from "../middleware/auth";
 // Removed automatic AI summary generation; summaries can be requested via /api/ai/summary
 
-export async function postNote(req: Request, res: Response) {
+export async function postNote(req: AuthenticatedRequest, res: Response) {
 	try {
 		const { content, mood_score, productivity_score, date } = (req.body || {}) as {
 			content?: string; mood_score?: number; productivity_score?: number; date?: string;
@@ -13,8 +14,8 @@ export async function postNote(req: Request, res: Response) {
 			return res.status(400).json({ error: "mood_score, productivity_score, and date are required" });
 		}
 
-		const note = await createNote({ content });
-		await createMood({ date, mood_score, productivity_score });
+		const note = await createNote({ content, user_id: req.user?.id || null });
+		await createMood({ date, mood_score, productivity_score, user_id: req.user?.id || null });
 
 		return res.status(201).json({ note });
 	} catch (err) {
@@ -23,7 +24,7 @@ export async function postNote(req: Request, res: Response) {
 	}
 }
 
-export async function getNotes(req: Request, res: Response) {
+export async function getNotes(req: AuthenticatedRequest, res: Response) {
 	try {
 		const { date } = req.query as { date?: string };
 		if (!date) return res.status(400).json({ error: "date query param is required (YYYY-MM-DD)" });

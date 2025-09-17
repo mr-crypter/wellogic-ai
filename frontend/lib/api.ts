@@ -5,9 +5,10 @@ export interface CreateNoteResponse {
 }
 
 export async function createNote(params: { content: string; mood_score: number; productivity_score: number; date: string; }) {
-	const res = await fetch(`${API_BASE}/api/v1/notes`, {
+    const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+    const res = await fetch(`${API_BASE}/api/v1/notes`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
 		body: JSON.stringify(params)
 	});
 	if (!res.ok) throw new Error(`Create note failed: ${res.status}`);
@@ -15,9 +16,10 @@ export async function createNote(params: { content: string; mood_score: number; 
 }
 
 export async function getAiSummary(params: { content: string; mood?: number; productivity?: number; }) {
-	const res = await fetch(`${API_BASE}/api/ai/summary`, {
+    const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+    const res = await fetch(`${API_BASE}/api/ai/summary`, {
 		method: "POST",
-		headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
 		body: JSON.stringify(params)
 	});
 	if (!res.ok) throw new Error(`AI summary failed: ${res.status}`);
