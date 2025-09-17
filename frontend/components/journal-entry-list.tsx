@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -36,7 +36,29 @@ const moodIcons = {
 }
 
 export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryListProps) {
-  const [entries] = useState<JournalEntry[]>(initialEntries)
+  const [entries, setEntries] = useState<JournalEntry[]>(initialEntries)
+
+  useEffect(() => {
+    const fetchNotes = async () => {
+      try {
+        const today = new Date().toISOString().slice(0, 10)
+        const { getNotesByDate } = await import("@/lib/api")
+        const { notes } = await getNotesByDate(today)
+        const mapped: JournalEntry[] = notes.map((n) => ({
+          id: String(n.id),
+          content: n.content,
+          createdAt: n.created_at,
+          mood: (n.latest_mood_score ?? undefined) ? "content" : "neutral",
+          tags: [],
+          aiInsights: n.latest_summary ? [n.latest_summary] : [],
+        }))
+        setEntries(mapped)
+      } catch (e) {
+        // silently keep empty state
+      }
+    }
+    fetchNotes()
+  }, [])
 
   const filteredEntries = entries.filter((entry) => {
     const matchesSearch =
