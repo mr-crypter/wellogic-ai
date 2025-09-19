@@ -15,13 +15,12 @@ export const pool = new Pool({
 
 async function initializeDatabaseIfNeeded() {
   try {
-    // Check for users table
-    await pool.query("SELECT 1 FROM users LIMIT 1");
-  } catch {
-    // Apply schema
+    // Always apply schema on startup; statements are idempotent via IF NOT EXISTS
     const schemaPath = path.resolve(process.cwd(), "db", "schema.sql");
     const sql = fs.readFileSync(schemaPath, "utf8");
     await pool.query(sql);
+  } catch (err) {
+    console.error("Failed to apply database schema:", err);
   }
 }
 

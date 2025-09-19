@@ -19,6 +19,8 @@ export interface NoteWithExtras extends NoteRow {
     latest_summary?: string | null;
     latest_mood_score?: number | null;
     latest_productivity_score?: number | null;
+    ai_mood_score?: number | null;
+    ai_productivity_score?: number | null;
 }
 
 export async function listNotesByDate({ date, user_id }: { date: string; user_id?: number | null }): Promise<NoteWithExtras[]> {
@@ -32,18 +34,37 @@ export async function listNotesByDate({ date, user_id }: { date: string; user_id
             SELECT DISTINCT ON (s.note_id) s.note_id, s.ai_summary, s.created_at
             FROM summaries s
             ORDER BY s.note_id, s.created_at DESC
+        ), latest_ai AS (
+            SELECT DISTINCT ON (m.note_id) m.note_id, m.ai_mood_score, m.ai_productivity_score, m.created_at
+            FROM note_ai_metrics m
+            ORDER BY m.note_id, m.created_at DESC
         )
         SELECT n.id, n.content, n.user_id, n.created_at,
                ls.ai_summary as latest_summary,
                lm.mood_score as latest_mood_score,
-               lm.productivity_score as latest_productivity_score
+               lm.productivity_score as latest_productivity_score,
+               la.ai_mood_score as ai_mood_score,
+               la.ai_productivity_score as ai_productivity_score
         FROM notes n
         LEFT JOIN latest_summaries ls ON ls.note_id = n.id
         LEFT JOIN latest_moods lm ON lm.user_id = n.user_id AND DATE(n.created_at) = lm.date
+        LEFT JOIN latest_ai la ON la.note_id = n.id
         WHERE DATE(n.created_at) = $1
           AND ($2::int IS NULL OR n.user_id = $2::int)
         ORDER BY n.created_at DESC`,
         [date, user_id ?? null]
+    );
+    return result.rows;
+}
+
+
+export async function listRecentNotesByUser({ user_id, days = 5 }: { user_id: number; days?: number }): Promise<NoteRow[]> {
+    const result = await query<NoteRow>(
+        `SELECT id, content, user_id, created_at
+         FROM notes
+         WHERE user_id = $1 AND created_at >= NOW() - ($2::int || ' days')::interval
+         ORDER BY created_at DESC`,
+        [user_id, days]
     );
     return result.rows;
 }

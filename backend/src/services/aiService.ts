@@ -7,13 +7,15 @@ export interface GeminiSummaryInput {
 	content: string;
 	mood?: number;
 	productivity?: number;
+    recentContext?: string; // multi-day context
+    sentimentHints?: { polarity?: string; emotion?: string; confidence?: number };
 }
 
-export async function generateSummaryWithGemini({ content, mood, productivity }: GeminiSummaryInput): Promise<string> {
+export async function generateSummaryWithGemini({ content, mood, productivity, recentContext, sentimentHints }: GeminiSummaryInput): Promise<string> {
 	if (!GEMINI_API_KEY) {
 		throw new Error("GEMINI_API_KEY is not set");
 	}
-    const retrievedContext = ""; // TODO: add semantic retrieval context
+    const retrievedContext = recentContext || "";
     const prompt = [
         "You are an AI journaling assistant that summarizes and interprets daily journal entries.",
         "Write a reflective summary (2–4 sentences) that captures:",
@@ -23,6 +25,7 @@ export async function generateSummaryWithGemini({ content, mood, productivity }:
         "",
         "Context: Here are the most relevant past notes (retrieved via semantic search):",
         retrievedContext || "No past entries available.",
+        sentimentHints ? `\nSentiment Analysis (external model):\n${JSON.stringify(sentimentHints, null, 2)}` : undefined,
         "",
         "Today's entry:",
         content,
@@ -64,6 +67,78 @@ export async function generateSummaryWithGemini({ content, mood, productivity }:
 	const json = await response.json() as any;
 	const text = json?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 	return String(text).trim();
+}
+
+// Generate an embedding vector for text using Gemini embeddings API
+export async function embedText({ text }: { text: string }): Promise<number[]> {
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not set");
+    }
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:embedText?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const body = { text } as any;
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+        const t = await response.text();
+        throw new Error(`Gemini embed error: ${response.status} ${t}`);
+    }
+    const json = await response.json() as any;
+    const values: number[] = json?.embedding?.values || json?.embedding?.value || json?.data?.[0]?.embedding || [];
+    if (!Array.isArray(values) || values.length === 0) {
+        throw new Error("No embedding returned");
+    }
+    return values.map((v: any) => Number(v));
+}
+
+export function cosineSimilarity(a: number[], b: number[]): number {
+    if (a.length !== b.length || a.length === 0) return 0;
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++) {
+        const x = a[i];
+        const y = b[i];
+        dot += x * y;
+        na += x * x;
+        nb += y * y;
+    }
+    if (na === 0 || nb === 0) return 0;
+    return dot / (Math.sqrt(na) * Math.sqrt(nb));
+}
+
+// Extract "Mood: X/10, Productivity: Y/10" from model output
+export function parseAiScoresFromText(text: string): { mood?: number; productivity?: number } {
+    const m = /Mood:\s*(\d{1,2})\s*\/\s*10/i.exec(text);
+    const p = /Productivity:\s*(\d{1,2})\s*\/\s*10/i.exec(text);
+    const mood = m ? Math.max(1, Math.min(10, Number(m[1]))) : undefined;
+    const productivity = p ? Math.max(1, Math.min(10, Number(p[1]))) : undefined;
+    return { mood, productivity };
+}
+
+// Simple chunking: split by blank lines into paragraphs, then split long paragraphs into sentences
+export function chunkTextSmart(text: string, options?: { maxCharsPerChunk?: number }): string[] {
+    const maxChars = options?.maxCharsPerChunk ?? 400;
+    const paragraphs = String(text || "").split(/\n\s*\n+/).map(s => s.trim()).filter(Boolean);
+    const chunks: string[] = [];
+    for (const para of paragraphs) {
+        if (para.length <= maxChars) {
+            chunks.push(para);
+        } else {
+            const sentences = para.split(/(?<=[.!?])\s+/);
+            let buf = "";
+            for (const s of sentences) {
+                if ((buf + (buf ? " " : "") + s).length > maxChars) {
+                    if (buf) chunks.push(buf);
+                    buf = s;
+                } else {
+                    buf = buf ? `${buf} ${s}` : s;
+                }
+            }
+            if (buf) chunks.push(buf);
+        }
+    }
+    return chunks;
 }
 
 

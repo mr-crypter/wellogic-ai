@@ -1,10 +1,11 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { BookOpen, TrendingUp, FileText, Brain } from "lucide-react"
+import { BookOpen, TrendingUp, FileText, Brain, LogOut, User } from "lucide-react"
+import { useEffect, useState } from "react"
 
 const navigation = [
   {
@@ -29,6 +30,19 @@ const navigation = [
 
 export function Navigation() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwt_token")
+    setIsAuthenticated(!!token)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem("jwt_token")
+    setIsAuthenticated(false)
+    router.push("/auth")
+  }
 
   return (
     <nav className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -42,25 +56,47 @@ export function Navigation() {
             <span className="text-foreground font-semibold">AI Journal</span>
           </Link>
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center gap-1">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link key={item.name} href={item.href}>
-                  <Button
-                    variant={isActive ? "default" : "ghost"}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2",
-                      isActive && "bg-primary text-primary-foreground",
-                    )}
-                  >
-                    <item.icon className="w-4 h-4" />
-                    {item.name}
-                  </Button>
-                </Link>
-              )
-            })}
+          {/* Navigation Links - only show if authenticated */}
+          {isAuthenticated && (
+            <div className="hidden md:flex items-center gap-1">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href
+                return (
+                  <Link key={item.name} href={item.href}>
+                    <Button
+                      variant={isActive ? "default" : "ghost"}
+                      className={cn(
+                        "flex items-center gap-2 px-4 py-2",
+                        isActive && "bg-primary text-primary-foreground",
+                      )}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.name}
+                    </Button>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Auth Actions */}
+          <div className="flex items-center gap-2">
+            {isAuthenticated ? (
+              <>
+                <Button variant="ghost" size="sm">
+                  <User className="w-4 h-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
+                  <LogOut className="w-4 h-4" />
+                </Button>
+              </>
+            ) : (
+              <Link href="/auth">
+                <Button variant="default" size="sm">
+                  Sign In
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Navigation */}
