@@ -68,4 +68,52 @@ export async function getNotesByDate(date: string): Promise<{ notes: BackendNote
   return (await res.json()) as { notes: BackendNote[] };
 }
 
+// Trends & Reports
+export interface MoodTrendPoint {
+  date: string;
+  avg_mood: number | null;
+  avg_productivity: number | null;
+}
+
+export async function getMoodTrends(range: string): Promise<{ range: number; data: MoodTrendPoint[] }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/v1/moods/trends?range=${encodeURIComponent(range)}`, {
+    method: "GET",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Get mood trends failed: ${res.status}`);
+  return (await res.json()) as { range: number; data: MoodTrendPoint[] };
+}
+
+export async function getWeeklyReport(end?: string): Promise<any> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const url = end ? `${API_BASE}/api/v1/reports/weekly?end=${encodeURIComponent(end)}` : `${API_BASE}/api/v1/reports/weekly`;
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Get weekly report failed: ${res.status}`);
+  return await res.json();
+}
+
+export async function getDailyReport(date: string): Promise<any> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/v1/reports/daily?date=${encodeURIComponent(date)}`, {
+    method: "GET",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Get daily report failed: ${res.status}`);
+  return await res.json();
+}
+
+export async function getMe(): Promise<{ id: number; email: string; nickname: string|null; avatar_url: string|null; avatar_name: string|null }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/auth/me`, {
+    method: "GET",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Get me failed: ${res.status}`);
+  return await res.json();
+}
+
 

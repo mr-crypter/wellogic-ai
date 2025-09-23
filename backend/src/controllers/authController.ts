@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { createUser, findUserByEmail } from "../models/users.js";
+import { createUser, findUserByEmail, findUserById } from "../models/users.js";
 import { createSession, findSessionByToken } from "../models/sessions.js";
 import { validatePasswordStrength } from "../utils/password.js";
 
@@ -82,6 +82,22 @@ export async function login(req: Request, res: Response) {
       token: sessionToken, // Opaque token for frontend
       user: { id: user.id, email: user.email, nickname: user.nickname, avatar_url: user.avatar_url, avatar_name: user.avatar_name } 
     });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+export async function me(req: Request, res: Response) {
+  try {
+    const auth = req.headers.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+    if (!token) return res.status(401).json({ message: "missing bearer token" });
+    const session = await findSessionByToken(token);
+    if (!session) return res.status(401).json({ message: "invalid or expired session" });
+    const user = await findUserById(session.user_id);
+    if (!user) return res.status(404).json({ message: "user not found" });
+    return res.json({ id: user.id, email: user.email, nickname: user.nickname, avatar_url: user.avatar_url, avatar_name: user.avatar_name });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "Internal server error" });

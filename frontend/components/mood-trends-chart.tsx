@@ -1,16 +1,39 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
+import { getMoodTrends } from "@/lib/api"
 
 interface MoodTrendsChartProps {
   timeRange: string
 }
 
-// No sample data — start empty until wired to backend
-const mockData: { date: string; mood: number; entries: number }[] = []
+type ChartPoint = { date: string; mood: number | null }
 
 export function MoodTrendsChart({ timeRange }: MoodTrendsChartProps) {
+  const [data, setData] = useState<ChartPoint[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await getMoodTrends(timeRange)
+        if (cancelled) return
+        const mapped: ChartPoint[] = (res.data || []).map((d) => ({
+          date: String(d.date).slice(0, 10),
+          mood: d.avg_mood ?? null,
+        }))
+        setData(mapped)
+      } catch {
+        setData([])
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [timeRange])
   return (
     <Card>
       <CardHeader>
@@ -20,7 +43,7 @@ export function MoodTrendsChart({ timeRange }: MoodTrendsChartProps) {
       <CardContent>
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={mockData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
               <YAxis domain={[1, 10]} className="text-xs fill-muted-foreground" />

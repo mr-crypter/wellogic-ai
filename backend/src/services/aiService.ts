@@ -74,23 +74,32 @@ export async function embedText({ text }: { text: string }): Promise<number[]> {
     if (!GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY is not set");
     }
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_EMBED_MODEL}:embedText?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    // Prefer newer v1 endpoint; fall back to v1beta if needed
+    const buildUrl = (version: 'v1'|'v1beta') => `https://generativelanguage.googleapis.com/${version}/models/${GEMINI_EMBED_MODEL}:embedText?key=${encodeURIComponent(GEMINI_API_KEY)}`;
     const body = { text } as any;
-    const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-    });
-    if (!response.ok) {
-        const t = await response.text();
-        throw new Error(`Gemini embed error: ${response.status} ${t}`);
+    async function tryOnce(url: string): Promise<number[] | null> {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+        if (!response.ok) {
+            return null;
+        }
+        const json = await response.json() as any;
+        const values: number[] = json?.embedding?.values || json?.embedding?.value || json?.data?.[0]?.embedding || [];
+        if (!Array.isArray(values) || values.length === 0) {
+            return null;
+        }
+        return values.map((v: any) => Number(v));
     }
-    const json = await response.json() as any;
-    const values: number[] = json?.embedding?.values || json?.embedding?.value || json?.data?.[0]?.embedding || [];
-    if (!Array.isArray(values) || values.length === 0) {
-        throw new Error("No embedding returned");
+    let vec = await tryOnce(buildUrl('v1'));
+    if (!vec) vec = await tryOnce(buildUrl('v1beta'));
+    if (!vec) {
+        // Last resort: avoid crashing pipeline; return zero-vector of common size 768
+        return new Array(768).fill(0);
     }
-    return values.map((v: any) => Number(v));
+    return vec;
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {

@@ -83,9 +83,11 @@ export function Navigation() {
           <div className="flex items-center gap-2">
             {isAuthenticated ? (
               <>
-                <Button variant="ghost" size="sm">
-                  <User className="w-4 h-4" />
-                </Button>
+                <Link href="/user">
+                  <Button variant="ghost" size="sm">
+                    <User className="w-4 h-4" />
+                  </Button>
+                </Link>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   <LogOut className="w-4 h-4" />
                 </Button>

@@ -31,4 +31,13 @@ export async function findUserByEmail(email: string): Promise<UserRow | null> {
   return result.rows[0] || null;
 }
 
+export async function findUserById(id: number): Promise<UserRow | null> {
+  const result = await query<UserRow>(
+    `SELECT id, email, password_hash, nickname, avatar_url, avatar_name, created_at
+     FROM users WHERE id = $1`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 
