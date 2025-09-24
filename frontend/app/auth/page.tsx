@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { AvatarSelection } from "@/components/avatar-selection"
+import { getMe } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { User, Mail, Edit2, Save, X, Camera, Shield, Bell } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -28,6 +30,7 @@ interface UserProfile {
 
 export default function ProfilePage() {
   const { isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setSaving] = useState(false)
@@ -52,41 +55,35 @@ export default function ProfilePage() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem("jwt_token")
-      const response = await fetch("/api/user/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
+      const me = await getMe()
+      const data: UserProfile = {
+        email: me.email,
+        nickname: me.nickname || "",
+        avatar_url: me.avatar_url || "",
+        avatar_name: me.avatar_name || "",
+        bio: "",
+        preferences: {
+          email_notifications: true,
+          ai_insights: true,
+          data_sharing: false,
         },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setProfile(data)
-        setEditForm(data)
       }
+      setProfile(data)
+      setEditForm(data)
     } catch (error) {
       console.error("Failed to fetch profile:", error)
+      // If session is invalid/expired, clear token and redirect to login/signup
+      try { localStorage.removeItem("jwt_token") } catch {}
+      router.push("/auth")
     }
   }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      const token = localStorage.getItem("jwt_token")
-      const response = await fetch("/api/user/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(editForm),
-      })
-
-      if (response.ok) {
-        const updatedProfile = await response.json()
-        setProfile(updatedProfile)
-        setIsEditing(false)
-      }
+      // No profile update API yet; persist locally for now
+      setProfile(editForm)
+      setIsEditing(false)
     } catch (error) {
       console.error("Failed to update profile:", error)
     } finally {

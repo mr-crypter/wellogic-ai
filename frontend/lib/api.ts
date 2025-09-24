@@ -68,11 +68,33 @@ export async function getNotesByDate(date: string): Promise<{ notes: BackendNote
   return (await res.json()) as { notes: BackendNote[] };
 }
 
+export async function updateNote(id: number, params: { content: string }): Promise<{ note: BackendNote }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/v1/notes/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error(`Update note failed: ${res.status}`);
+  return (await res.json()) as { note: BackendNote };
+}
+
+export async function deleteNote(id: number): Promise<void> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/v1/notes/${id}`, {
+    method: "DELETE",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Delete note failed: ${res.status}`);
+}
+
 // Trends & Reports
 export interface MoodTrendPoint {
   date: string;
   avg_mood: number | null;
   avg_productivity: number | null;
+  avg_ai_mood?: number | null;
+  avg_ai_productivity?: number | null;
 }
 
 export async function getMoodTrends(range: string): Promise<{ range: number; data: MoodTrendPoint[] }> {

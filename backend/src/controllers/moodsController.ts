@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { createMood, getDailyAverages } from "../models/moods.js";
+import { getDailyAiAverages } from "../models/aiMetrics.js";
 
 export async function postMood(req: Request, res: Response) {
 	try {
@@ -19,9 +20,27 @@ export async function postMood(req: Request, res: Response) {
 
 export async function getTrends(req: Request, res: Response) {
 	try {
-		const days = Number((req.query.range as string) || 7);
-		const rows = await getDailyAverages({ days });
-		return res.json({ range: days, data: rows });
+        const rawStr = String(req.query.range ?? "7");
+        const match = rawStr.match(/\d+/);
+        const parsed = match ? parseInt(match[0], 10) : 7;
+        const days = Number.isFinite(parsed) && parsed > 0 ? Math.min(365, parsed) : 7;
+        const [human, ai] = await Promise.all([
+            getDailyAverages({ days }),
+            getDailyAiAverages({ days })
+        ]);
+        const aiByDate = new Map(ai.map(r => [String(r.date).slice(0,10), r]));
+        const merged = human.map(h => {
+            const key = String(h.date).slice(0,10);
+            const a = aiByDate.get(key);
+            return {
+                date: h.date,
+                avg_mood: h.avg_mood == null ? null : Number(h.avg_mood as any),
+                avg_productivity: h.avg_productivity == null ? null : Number(h.avg_productivity as any),
+                avg_ai_mood: a?.avg_ai_mood ?? null,
+                avg_ai_productivity: a?.avg_ai_productivity ?? null
+            };
+        });
+        return res.json({ range: days, data: merged });
 	} catch (err) {
 		console.error(err);
 		return res.status(500).json({ error: "Internal server error" });

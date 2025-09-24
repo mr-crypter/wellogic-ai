@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Calendar, Tag, Smile, Meh, Frown, Heart, Star, MoreHorizontal, Edit, Trash2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
 
 interface JournalEntry {
   id: string
@@ -37,6 +38,9 @@ const moodIcons = {
 
 export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryListProps) {
   const [entries, setEntries] = useState<JournalEntry[]>(initialEntries)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [draftContent, setDraftContent] = useState<string>("")
+  const [isBusy, setIsBusy] = useState<boolean>(false)
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -59,6 +63,44 @@ export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryList
     }
     fetchNotes()
   }, [])
+  const beginEdit = (entry: JournalEntry) => {
+    setEditingId(entry.id)
+    setDraftContent(entry.content)
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setDraftContent("")
+  }
+
+  const saveEdit = async (id: string) => {
+    try {
+      setIsBusy(true)
+      const { updateNote } = await import("@/lib/api")
+      const numId = Number(id)
+      await updateNote(numId, { content: draftContent })
+      setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, content: draftContent } : e)))
+      setEditingId(null)
+    } catch (e) {
+      // ignore for now
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  const removeEntry = async (id: string) => {
+    try {
+      setIsBusy(true)
+      const { deleteNote } = await import("@/lib/api")
+      await deleteNote(Number(id))
+      setEntries((prev) => prev.filter((e) => e.id !== id))
+    } catch (e) {
+      // ignore for now
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
 
   const filteredEntries = entries.filter((entry) => {
     const matchesSearch =
@@ -119,11 +161,11 @@ export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryList
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => beginEdit(entry)}>
                     <Edit className="w-4 h-4 mr-2" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="text-destructive">
+                  <DropdownMenuItem className="text-destructive" onClick={() => removeEntry(entry.id)}>
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete
                   </DropdownMenuItem>
@@ -132,7 +174,17 @@ export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryList
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-foreground leading-relaxed mb-4">{entry.content}</p>
+            {editingId === entry.id ? (
+              <div className="space-y-3">
+                <Input value={draftContent} onChange={(e) => setDraftContent(e.target.value)} disabled={isBusy} />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => saveEdit(entry.id)} disabled={isBusy || draftContent.trim() === ""}>Save</Button>
+                  <Button size="sm" variant="outline" onClick={cancelEdit} disabled={isBusy}>Cancel</Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-foreground leading-relaxed mb-4">{entry.content}</p>
+            )}
 
             {entry.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">

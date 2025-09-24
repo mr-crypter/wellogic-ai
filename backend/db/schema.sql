@@ -94,3 +94,11 @@ CREATE TABLE IF NOT EXISTS note_ai_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_note_ai_metrics_note_id ON note_ai_metrics(note_id);
 CREATE INDEX IF NOT EXISTS idx_note_ai_metrics_user_created ON note_ai_metrics(user_id, created_at);
+
+-- User profiles for AI personalization
+CREATE TABLE IF NOT EXISTS user_profiles (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    preferences JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

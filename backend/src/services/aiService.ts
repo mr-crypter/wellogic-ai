@@ -4,20 +4,22 @@ const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const GEMINI_EMBED_MODEL = process.env.GEMINI_EMBED_MODEL || "text-embedding-004";
 
 export interface GeminiSummaryInput {
-	content: string;
-	mood?: number;
-	productivity?: number;
+    content: string;
+    mood?: number;
+    productivity?: number;
     recentContext?: string; // multi-day context
     sentimentHints?: { polarity?: string; emotion?: string; confidence?: number };
+    persona?: string; // optional user profile/preferences to steer tone & focus
 }
 
-export async function generateSummaryWithGemini({ content, mood, productivity, recentContext, sentimentHints }: GeminiSummaryInput): Promise<string> {
+export async function generateSummaryWithGemini({ content, mood, productivity, recentContext, sentimentHints, persona }: GeminiSummaryInput): Promise<string> {
 	if (!GEMINI_API_KEY) {
 		throw new Error("GEMINI_API_KEY is not set");
 	}
     const retrievedContext = recentContext || "";
     const prompt = [
         "You are an AI journaling assistant that summarizes and interprets daily journal entries.",
+        persona ? `User profile & preferences (use to tailor tone and focus):\n${persona}` : undefined,
         "Write a reflective summary (2–4 sentences) that captures:",
         "- The user's overall mood and productivity, inferred from the tone and content of the writing (not only explicit scores).",
         "- Key events or activities described in the entry.",
@@ -123,6 +125,64 @@ export function parseAiScoresFromText(text: string): { mood?: number; productivi
     const mood = m ? Math.max(1, Math.min(10, Number(m[1]))) : undefined;
     const productivity = p ? Math.max(1, Math.min(10, Number(p[1]))) : undefined;
     return { mood, productivity };
+}
+
+export async function extractMetadataWithGemini({ content, recentContext, persona }: { content: string; recentContext?: string; persona?: string; }): Promise<{ mood?: number | null; productivity?: number | null; tags?: string[] | null; sentiment?: { polarity?: string | null; emotion?: string | null; confidence?: number | null } | null; }> {
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not set");
+    }
+    const prompt = [
+        "You are an AI that extracts structured metadata from a personal journal entry.",
+        persona ? `User profile & preferences (use for better tagging; do not include in output):\n${persona}` : undefined,
+        "Given the entry and recent context, return ONLY valid JSON with this shape:",
+        '{"mood": number|null, "productivity": number|null, "tags": string[]|null, "sentiment": {"polarity": string|null, "emotion": string|null, "confidence": number|null}}',
+        "Rules:",
+        "- mood and productivity are integers 1..10 inferred from writing (null if insufficient evidence)",
+        "- tags: 3-8 concise lowercase keywords (e.g., ['work','family','gratitude']) or null",
+        "- sentiment: polarity in {positive, neutral, negative} (or null), emotion is a single word (e.g., 'joy','stress'), confidence 0..1",
+        "- Output ONLY the JSON, with no prose.",
+        "Recent context (may be empty):",
+        recentContext || "",
+        "Today's entry:",
+        content
+    ].filter(Boolean).join("\n");
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const body = {
+        contents: [
+            {
+                role: "user",
+                parts: [{ text: prompt }]
+            }
+        ]
+    };
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Gemini error: ${response.status} ${text}`);
+    }
+    const json = await response.json() as any;
+    const text = String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    try {
+        const parsed = JSON.parse(text);
+        const mood = parsed?.mood == null ? null : Number(parsed.mood);
+        const productivity = parsed?.productivity == null ? null : Number(parsed.productivity);
+        const tags = Array.isArray(parsed?.tags) ? parsed.tags.map((t: any) => String(t).toLowerCase().trim()).filter(Boolean) : null;
+        const sentiment = parsed?.sentiment ? {
+            polarity: parsed.sentiment.polarity == null ? null : String(parsed.sentiment.polarity),
+            emotion: parsed.sentiment.emotion == null ? null : String(parsed.sentiment.emotion),
+            confidence: parsed.sentiment.confidence == null ? null : Number(parsed.sentiment.confidence)
+        } : null;
+        return { mood, productivity, tags, sentiment };
+    } catch {
+        // Fallback: best-effort parse using regexes
+        const { mood, productivity } = parseAiScoresFromText(text);
+        return { mood: mood ?? null, productivity: productivity ?? null, tags: null, sentiment: null };
+    }
 }
 
 // Simple chunking: split by blank lines into paragraphs, then split long paragraphs into sentences

@@ -22,7 +22,7 @@ export function MoodTrendsChart({ timeRange }: MoodTrendsChartProps) {
         if (cancelled) return
         const mapped: ChartPoint[] = (res.data || []).map((d) => ({
           date: String(d.date).slice(0, 10),
-          mood: d.avg_mood ?? null,
+          mood: (d as any).avg_ai_mood ?? d.avg_mood ?? null,
         }))
         setData(mapped)
       } catch {

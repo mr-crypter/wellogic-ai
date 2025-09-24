@@ -1,13 +1,15 @@
 import { Response } from "express";
-import { createNote, listNotesByDate } from "../models/notes.js";
+import { createNote, listNotesByDate, updateNoteContent, deleteNoteById } from "../models/notes.js";
 import { createMood } from "../models/moods.js";
 import { upsertNoteEmbedding, getRecentNoteEmbeddingsForUser, parseEmbedding, searchNearestByVector } from "../models/embeddings.js";
 import { insertNoteAiMetric } from "../models/aiMetrics.js";
 import { analyzeSentimentHeuristic } from "../services/sentiment.js";
-import { embedText, generateSummaryWithGemini, parseAiScoresFromText, chunkTextSmart, cosineSimilarity } from "../services/aiService.js";
+import { embedText, generateSummaryWithGemini, parseAiScoresFromText, chunkTextSmart, cosineSimilarity, extractMetadataWithGemini } from "../services/aiService.js";
+import { getUserProfile } from "../models/userProfiles.js";
 import { listRecentNotesByUser } from "../models/notes.js";
 import { createSummary } from "../models/summaries.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
+import { query } from "../models/db.js";
 // Removed automatic AI summary generation; summaries can be requested via /api/ai/summary
 
 export async function postNote(req: AuthenticatedRequest, res: Response) {
@@ -69,25 +71,41 @@ export async function postNote(req: AuthenticatedRequest, res: Response) {
 					}).join("\n\n");
 				}
 
-				// Generate summary with Gemini (short, structured prompt) using context + sentiment
-				const geminiText = await generateSummaryWithGemini({ content, recentContext, sentimentHints });
-				const { mood: ai_mood, productivity: ai_prod } = parseAiScoresFromText(geminiText);
+                // Load user persona preferences
+                const profile = await getUserProfile(userId).catch(() => null);
+                const persona = profile?.preferences ? JSON.stringify(profile.preferences, null, 2) : undefined;
+
+                // Generate summary with Gemini (short, structured prompt) using context + sentiment + persona
+                const geminiText = await generateSummaryWithGemini({ content, recentContext, sentimentHints, persona });
+                const { mood: ai_mood, productivity: ai_prod } = parseAiScoresFromText(geminiText);
+
+                // Extract structured metadata (tags, sentiment, scores)
+                const meta = await extractMetadataWithGemini({ content, recentContext, persona }).catch(() => ({ mood: null, productivity: null, tags: null, sentiment: null }));
 
 				// Persist in parallel: embedding upsert, AI metrics, and cached summary
 				await Promise.all([
 					upsertNoteEmbedding({ note_id: note.id, user_id: userId, embedding: noteEmbedding }),
-					insertNoteAiMetric({
+                    insertNoteAiMetric({
 						note_id: note.id,
 						user_id: userId,
-						ai_mood_score: ai_mood ?? null,
-						ai_productivity_score: ai_prod ?? null,
-						sentiment_polarity: sentimentHints.polarity,
-						sentiment_emotion: sentimentHints.emotion,
-						sentiment_confidence: sentimentHints.confidence,
-						tags: null
+                        ai_mood_score: (ai_mood ?? meta.mood) ?? null,
+                        ai_productivity_score: (ai_prod ?? meta.productivity) ?? null,
+                        sentiment_polarity: meta.sentiment?.polarity ?? sentimentHints.polarity,
+                        sentiment_emotion: meta.sentiment?.emotion ?? sentimentHints.emotion,
+                        sentiment_confidence: meta.sentiment?.confidence ?? sentimentHints.confidence,
+                        tags: meta.tags ?? null
 					}),
 					createSummary({ note_id: note.id, ai_summary: geminiText })
 				]);
+
+                // Auto-create moods row if user omitted scores but AI inferred them
+                if ((mood_score == null || productivity_score == null) && (ai_mood != null || ai_prod != null || meta.mood != null || meta.productivity != null)) {
+                    const m = (ai_mood ?? meta.mood) ?? null;
+                    const p = (ai_prod ?? meta.productivity) ?? null;
+                    if (m != null && p != null) {
+                        try { await createMood({ date, mood_score: m, productivity_score: p, user_id: userId }); } catch {}
+                    }
+                }
 			} catch (e) {
 				console.error("Background AI pipeline error:", e);
 			}
@@ -107,7 +125,7 @@ export async function getNotes(req: AuthenticatedRequest, res: Response) {
 	try {
 		const { date } = req.query as { date?: string };
 		if (!date) return res.status(400).json({ error: "date query param is required (YYYY-MM-DD)" });
-		const notes = await listNotesByDate({ date, user_id: req.user?.id });
+        const notes = await listNotesByDate({ date, user_id: req.user?.id });
 		return res.json({ notes });
 	} catch (err) {
 		console.error(err);
@@ -115,4 +133,101 @@ export async function getNotes(req: AuthenticatedRequest, res: Response) {
 	}
 }
 
+// Stats: notes/day and word counts for range days back
+export async function getNoteStats(req: AuthenticatedRequest, res: Response) {
+    try {
+        const range = Math.max(1, Math.min(365, Number((req.query.range as string) || 7)));
+        const userId = req.user?.id;
+        const rows = await query<any>(
+            `WITH days AS (
+                SELECT generate_series((CURRENT_DATE - ($1::int - 1) * interval '1 day')::date, CURRENT_DATE::date, interval '1 day')::date AS d
+            )
+            SELECT d.d AS date,
+                   COALESCE(cnt.note_count, 0) AS note_count,
+                   COALESCE(cnt.word_count, 0) AS word_count
+            FROM days d
+            LEFT JOIN (
+              SELECT DATE(created_at) AS day,
+                     COUNT(*) AS note_count,
+                     SUM(length(content)) AS word_count
+              FROM notes
+              WHERE ($2::int IS NULL OR user_id = $2::int)
+                AND created_at >= CURRENT_DATE - $1::int
+              GROUP BY DATE(created_at)
+            ) cnt ON cnt.day = d.d
+            ORDER BY d.d ASC`,
+            [range, userId ?? null]
+        );
+        return res.json({ range, data: rows.rows });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+}
+
+// Streaks: current, longest, recent days
+export async function getNoteStreaks(req: AuthenticatedRequest, res: Response) {
+    try {
+        const userId = req.user?.id;
+        const recentDays = 30;
+        const rows = await query<any>(
+            `WITH days AS (
+                SELECT generate_series((CURRENT_DATE - $1::int + 1)::date, CURRENT_DATE::date, interval '1 day')::date AS d
+            ), entries AS (
+                SELECT DATE(created_at) AS day, COUNT(*) AS c
+                FROM notes
+                WHERE ($2::int IS NULL OR user_id = $2::int)
+                GROUP BY DATE(created_at)
+            )
+            SELECT d.d AS date, (e.c IS NOT NULL) AS has_entry
+            FROM days d
+            LEFT JOIN entries e ON e.day = d.d
+            ORDER BY d.d ASC`,
+            [recentDays, userId ?? null]
+        );
+
+        // compute current and longest streaks
+        const flags = rows.rows.map((r: any) => Boolean(r.has_entry));
+        let current = 0, longest = 0, run = 0;
+        for (let i = 0; i < flags.length; i++) {
+            if (flags[i]) { run++; longest = Math.max(longest, run); } else { run = 0; }
+        }
+        // current streak counts from newest backwards
+        for (let i = flags.length - 1; i >= 0 && flags[i]; i--) current++;
+
+        return res.json({ current_streak: current, longest_streak: longest, recent: rows.rows });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+}
+
+
+export async function updateNote(req: AuthenticatedRequest, res: Response) {
+    try {
+        const id = Number((req.params as any).id);
+        const { content } = (req.body || {}) as { content?: string };
+        if (!id || !Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
+        if (!content) return res.status(400).json({ error: "content is required" });
+        const updated = await updateNoteContent({ id, user_id: req.user?.id, content });
+        if (!updated) return res.status(404).json({ error: "note not found" });
+        return res.json({ note: updated });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+}
+
+export async function deleteNote(req: AuthenticatedRequest, res: Response) {
+    try {
+        const id = Number((req.params as any).id);
+        if (!id || !Number.isFinite(id)) return res.status(400).json({ error: "invalid id" });
+        const ok = await deleteNoteById({ id, user_id: req.user?.id });
+        if (!ok) return res.status(404).json({ error: "note not found" });
+        return res.status(204).send();
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Internal server error" });
+    }
+}
 

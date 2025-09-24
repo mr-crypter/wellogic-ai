@@ -70,3 +70,26 @@ export async function listRecentNotesByUser({ user_id, days = 5 }: { user_id: nu
 }
 
 
+export async function updateNoteContent({ id, user_id, content }: { id: number; user_id?: number | null; content: string }): Promise<NoteRow | null> {
+    const result = await query<NoteRow>(
+        `UPDATE notes
+         SET content = $1
+         WHERE id = $2 AND ($3::int IS NULL OR user_id = $3::int)
+         RETURNING id, content, user_id, created_at`,
+        [content, id, user_id ?? null]
+    );
+    return result.rows[0] ?? null;
+}
+
+export async function deleteNoteById({ id, user_id }: { id: number; user_id?: number | null }): Promise<boolean> {
+    const result = await query<{ count: string }>(
+        `DELETE FROM notes
+         WHERE id = $1 AND ($2::int IS NULL OR user_id = $2::int)`,
+        [id, user_id ?? null]
+    );
+    // node-postgres does not return rowCount in SELECT, but on DELETE query object has rowCount; however our wrapper returns rows.
+    // Safer: run a second check for existence is overkill; instead rely on query returning metadata via (as any).
+    const anyRes: any = result as any;
+    return Boolean(anyRes?.rowCount && anyRes.rowCount > 0);
+}
+
