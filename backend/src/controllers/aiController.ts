@@ -18,7 +18,14 @@ export async function postAiSuggestions(req: Request, res: Response) {
         const { content, mood, productivity, recentContext, persona } = (req.body || {}) as { content?: string; mood?: number; productivity?: number; recentContext?: string; persona?: string };
         if (!content) return res.status(400).json({ error: "content is required" });
         const suggestions = await generateSuggestionsWithGemini({ content, mood, productivity, recentContext, persona });
-        return res.json({ suggestions });
+        const hasReflection = suggestions.length > 1;
+        const reflection = hasReflection ? String(suggestions[0]) : "";
+        const items = hasReflection ? suggestions.slice(1) : suggestions;
+        const messages = [
+            ...(reflection ? [{ role: "assistant", type: "reflection", text: reflection }] : []),
+            ...items.map((t) => ({ role: "assistant", type: "suggestion", text: t }))
+        ];
+        return res.json({ suggestions: items, messages });
     } catch (err: any) {
         console.error(err);
         return res.status(500).json({ error: err?.message || "Internal server error" });

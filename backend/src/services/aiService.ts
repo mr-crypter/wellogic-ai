@@ -77,21 +77,23 @@ export async function generateSuggestionsWithGemini({ content, mood, productivit
     }
     const context = recentContext || "";
     const prompt = [
-        "You are a thoughtful, proactive journaling companion.",
+        "You are a thoughtful, proactive, and empathetic journaling companion.",
         persona ? `User profile & preferences (use to tailor tone and focus):\n${persona}` : undefined,
-        "Given the user's journal entry (and optional recent context), generate a short list of concrete, empathetic next-step suggestions they could take today or this week.",
-        "Rules:",
-        "- Output ONLY valid JSON: an array of 3–6 short suggestion strings.",
-        "- Suggestions must be actionable and phrased in second person (e.g., 'Take a 10-minute walk').",
-        "- Prefer small, low-friction actions tied to the entry's themes and feelings.",
-        "- Avoid summarizing the entry. Do not include analysis or commentary.",
+        "Given the user's journal entry (and optional recent context), respond as a supportive friend would, with:",
+        "1. A short, empathetic reflection (1-2 sentences) on their overall mood or situation, drawing from their entry and recent context.",
+        "2. A list of 3–5 concrete, actionable, and low-friction next-step suggestions. Frame them in the second person (e.g., 'Consider trying X', 'Take a moment to Y').",
+        "Rules for Suggestions:",
+        "- Output suggestions as a JSON array of strings after the reflection.",
+        "- Suggestions should be tailored to themes/feelings in the entry and recent context.",
         "- Keep each suggestion under 100 characters.",
+        "- Avoid summarizing the entry or offering generic advice.",
+        "- If no specific mood is detected, focus on general well-being or reflective actions.",
         "Recent context (may be empty):",
         context,
         "Today's entry:",
         content,
         mood != null && productivity != null
-            ? `Optional self-reported scores (use only if helpful): mood=${mood}/10, productivity=${productivity}/10`
+            ? `User self-reported mood: ${mood}/10, productivity: ${productivity}/10. (Use as context only; still infer your own observations.)`
             : undefined,
     ].filter(Boolean).join("\n");
 
@@ -117,17 +119,28 @@ export async function generateSuggestionsWithGemini({ content, mood, productivit
     const json = await response.json() as any;
     const raw = String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
     try {
+        // Try to find a trailing JSON array (suggestions) and treat preceding text as reflection
+        const match = raw.match(/\n(\[[\s\S]*\])\s*$/);
+        if (match) {
+            const reflection = raw.slice(0, match.index || 0).trim();
+            const suggestions = JSON.parse(match[1]);
+            if (Array.isArray(suggestions)) {
+                const suggestionList = suggestions.map((s: any) => String(s)).filter(Boolean);
+                return reflection ? [reflection, ...suggestionList] : suggestionList;
+            }
+        }
+        // Fallback to parsing the whole text as JSON array
         const arr = JSON.parse(raw);
         if (Array.isArray(arr)) {
             return arr.map((s: any) => String(s)).filter(Boolean);
         }
     } catch {}
-    // Fallback: split by lines or bullets
+    // Fallback: split by lines or bullets and return all
     const lines = raw
         .split(/\r?\n+/)
         .map(s => s.replace(/^\s*[-*•]\s*/, "").trim())
         .filter(Boolean);
-    return lines.slice(0, 6);
+    return lines;
 }
 
 // Generate an embedding vector for text using Gemini embeddings API

@@ -14,6 +14,7 @@ export function AssistantWidget() {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [suggestions, setSuggestions] = useState<SuggestionItem[]>([])
+  const [reflection, setReflection] = useState<string>("")
   const [draft, setDraft] = useState("")
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -57,7 +58,18 @@ export function AssistantWidget() {
       if (!res.ok) return
       const json = await res.json()
       const arr: string[] = Array.isArray(json?.suggestions) ? json.suggestions : []
-      setSuggestions(arr.map((t) => ({ text: t })))
+      // If API returned chat-friendly messages, prefer them
+      const msgs: Array<{ role: string; type: string; text: string }> = Array.isArray(json?.messages) ? json.messages : []
+      if (msgs.length > 0) {
+        const refl = msgs.find(m => m.type === 'reflection')?.text || ""
+        setReflection(refl)
+        setSuggestions(msgs.filter(m => m.type === 'suggestion').map(m => ({ text: m.text })))
+      } else {
+        const hasReflection = arr.length > 1
+        setReflection(hasReflection ? String(arr[0]) : "")
+        const items = hasReflection ? arr.slice(1) : arr
+        setSuggestions(items.map((t) => ({ text: t })))
+      }
     } catch {
       // ignore
     } finally {
@@ -114,14 +126,18 @@ export function AssistantWidget() {
               <span className="text-[10px] text-muted-foreground">Auto-sync every 90s</span>
             </div>
 
-            <div className="space-y-1">
-              {suggestions.length === 0 && (
+            <div className="space-y-2">
+              {reflection && (
+                <div className="max-w-[95%] rounded-2xl bg-muted px-3 py-2 text-sm text-foreground">
+                  <span className="italic">{reflection}</span>
+                </div>
+              )}
+              {suggestions.length === 0 && !reflection && (
                 <div className="text-xs text-muted-foreground">No suggestions yet.</div>
               )}
               {suggestions.map((s, i) => (
-                <div key={i} className="text-sm text-muted-foreground flex gap-2">
-                  <div className="w-1.5 h-1.5 bg-primary rounded-full mt-2" />
-                  <span>{s.text}</span>
+                <div key={i} className="max-w-[95%] rounded-2xl bg-primary/10 px-3 py-2 text-sm text-foreground">
+                  {s.text}
                 </div>
               ))}
             </div>

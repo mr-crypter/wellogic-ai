@@ -65,7 +65,14 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
       const moodScore = Number(mood) || undefined
       const productivityScore = Number(productivity) || undefined
       const res = await getAiSuggestions({ content, mood: moodScore, productivity: productivityScore })
-      setAiSuggestions(res.suggestions || [])
+      const msgs: Array<{ role: string; type: string; text: string }> = (res as any).messages || []
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        const refl = msgs.find(m => m.type === 'reflection')?.text || ""
+        const items = msgs.filter(m => m.type === 'suggestion').map(m => m.text)
+        setAiSuggestions(refl ? [refl, ...items] : items)
+      } else {
+        setAiSuggestions(res.suggestions || [])
+      }
     } catch (e) {
       console.error(e)
     }
@@ -169,12 +176,27 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
           </div>
           {aiSuggestions.length > 0 && (
             <Card className="border-dashed">
-              <CardContent className="pt-4 text-sm text-muted-foreground whitespace-pre-wrap">
-                <ul className="list-disc pl-5 space-y-1">
-                  {aiSuggestions.map((s, i) => (
-                    <li key={i}>{s}</li>
-                  ))}
-                </ul>
+              <CardContent className="pt-4 text-sm whitespace-pre-wrap">
+                {(() => {
+                  const reflection = aiSuggestions.length > 1 ? aiSuggestions[0] : ""
+                  const items = aiSuggestions.length > 1 ? aiSuggestions.slice(1) : aiSuggestions
+                  return (
+                    <div className="space-y-3">
+                      {reflection && (
+                        <div className="max-w-[90%] rounded-2xl bg-muted px-3 py-2 text-foreground">
+                          <span className="italic">{reflection}</span>
+                        </div>
+                      )}
+                      <div className="space-y-2">
+                        {items.map((s, i) => (
+                          <div key={i} className="max-w-[90%] rounded-2xl bg-primary/10 px-3 py-2 text-foreground">
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </CardContent>
             </Card>
           )}

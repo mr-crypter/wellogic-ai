@@ -12,15 +12,37 @@ const positiveWords = new Set([
 ]);
 
 const negativeWords = new Set([
-    "tired","fatigue","fatigued","exhausted","stressed","stress","anxious","anxiety","worried","overwhelmed","sad","upset","angry","frustrated","burned","burnt","depressed","bad","terrible","awful"
+    "tired","fatigue","fatigued","exhausted","stressed","stress","anxious","anxiety","worried","overwhelmed","sad","upset","angry","frustrated","burned","burnt","depressed","bad","terrible","awful","hopeless","suicidal"
 ]);
 
 const angerWords = new Set(["angry","furious","mad","irritated","annoyed","frustrated"]);
 const sadnessWords = new Set(["sad","down","depressed","blue","tearful","lonely"]);
 const stressWords = new Set(["stressed","anxious","anxiety","overwhelmed","pressure","burned","burnt"]);
 
+// High-priority crisis phrases indicating self-harm or suicide intent
+const crisisPhrasePatterns: RegExp[] = [
+    /\bsuicide\b/i,
+    /\bsuicidal\b/i,
+    /\bkill\s+myself\b/i,
+    /\bend\s+my\s+life\b/i,
+    /\bwant\s+to\s+die\b/i,
+    /\bself[-\s]?harm\b/i,
+    /\bhurt\s+myself\b/i,
+    /\blife\s+is\s+not\s+worth\b/i,
+    /\bcan'?t\s+go\s+on\b/i,
+];
+
 export function analyzeSentimentHeuristic(text: string): SentimentHints {
-    const tokens = String(text || "").toLowerCase().match(/[a-z']+/g) || [];
+    const raw = String(text || "");
+    const lower = raw.toLowerCase();
+    // Crisis detection first: override with strong negative/sad signal
+    for (const re of crisisPhrasePatterns) {
+        if (re.test(lower)) {
+            return { polarity: "negative", emotion: "sad", confidence: 0.98 };
+        }
+    }
+
+    const tokens = lower.match(/[a-z']+/g) || [];
     if (tokens.length === 0) {
         return { polarity: "neutral", emotion: "neutral", confidence: 0.2 };
     }
