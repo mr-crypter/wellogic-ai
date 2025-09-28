@@ -71,6 +71,65 @@ export async function generateSummaryWithGemini({ content, mood, productivity, r
 	return String(text).trim();
 }
 
+export async function generateSuggestionsWithGemini({ content, mood, productivity, recentContext, persona }: GeminiSummaryInput): Promise<string[]> {
+    if (!GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY is not set");
+    }
+    const context = recentContext || "";
+    const prompt = [
+        "You are a thoughtful, proactive journaling companion.",
+        persona ? `User profile & preferences (use to tailor tone and focus):\n${persona}` : undefined,
+        "Given the user's journal entry (and optional recent context), generate a short list of concrete, empathetic next-step suggestions they could take today or this week.",
+        "Rules:",
+        "- Output ONLY valid JSON: an array of 3–6 short suggestion strings.",
+        "- Suggestions must be actionable and phrased in second person (e.g., 'Take a 10-minute walk').",
+        "- Prefer small, low-friction actions tied to the entry's themes and feelings.",
+        "- Avoid summarizing the entry. Do not include analysis or commentary.",
+        "- Keep each suggestion under 100 characters.",
+        "Recent context (may be empty):",
+        context,
+        "Today's entry:",
+        content,
+        mood != null && productivity != null
+            ? `Optional self-reported scores (use only if helpful): mood=${mood}/10, productivity=${productivity}/10`
+            : undefined,
+    ].filter(Boolean).join("\n");
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+    const body = {
+        contents: [
+            {
+                role: "user",
+                parts: [{ text: prompt }]
+            }
+        ]
+    } as any;
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+        const text = await response.text();
+        throw new Error(`Gemini error: ${response.status} ${text}`);
+    }
+    const json = await response.json() as any;
+    const raw = String(json?.candidates?.[0]?.content?.parts?.[0]?.text || "").trim();
+    try {
+        const arr = JSON.parse(raw);
+        if (Array.isArray(arr)) {
+            return arr.map((s: any) => String(s)).filter(Boolean);
+        }
+    } catch {}
+    // Fallback: split by lines or bullets
+    const lines = raw
+        .split(/\r?\n+/)
+        .map(s => s.replace(/^\s*[-*•]\s*/, "").trim())
+        .filter(Boolean);
+    return lines.slice(0, 6);
+}
+
 // Generate an embedding vector for text using Gemini embeddings API
 export async function embedText({ text }: { text: string }): Promise<number[]> {
     if (!GEMINI_API_KEY) {

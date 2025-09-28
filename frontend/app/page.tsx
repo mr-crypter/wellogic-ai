@@ -142,7 +142,7 @@ export default function HomePage() {
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex items-center gap-2">
                     <Brain className="w-4 h-4 text-primary" />
-                    Weekly summaries
+                    Actionable suggestions
                   </li>
                   <li className="flex items-center gap-2">
                     <Brain className="w-4 h-4 text-primary" />

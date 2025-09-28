@@ -6,6 +6,7 @@ import { Analytics } from "@vercel/analytics/next"
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
 import { Suspense } from "react"
+import { AssistantWidget } from "@/components/assistant-widget"
 
 export const metadata: Metadata = {
   title: "AI Journal - Intelligent Personal Journaling",
@@ -27,6 +28,7 @@ export default function RootLayout({
             <main className="flex-1">{children}</main>
           </div>
         </Suspense>
+        <AssistantWidget />
         <Analytics />
       </body>
     </html>

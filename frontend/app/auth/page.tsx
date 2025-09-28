@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { AvatarSelection } from "@/components/avatar-selection"
-import { getMe } from "@/lib/api"
+import { getMe, apiLogin, apiSignup } from "@/lib/api"
 import { useAuth } from "@/hooks/use-auth"
 import { User, Mail, Edit2, Save, X, Camera, Shield, Bell } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
@@ -34,6 +34,12 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setSaving] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
+  const [authEmail, setAuthEmail] = useState("")
+  const [authPassword, setAuthPassword] = useState("")
+  const [authNickname, setAuthNickname] = useState("")
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [authBusy, setAuthBusy] = useState(false)
   const [editForm, setEditForm] = useState<UserProfile>({
     email: "",
     nickname: "",
@@ -122,6 +128,89 @@ export default function ProfilePage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
           <p className="text-muted-foreground">Loading profile...</p>
         </div>
+      </div>
+    )
+  }
+
+  // If not authenticated, render auth form
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>{authMode === "login" ? "Log in" : "Sign up"}</CardTitle>
+            <CardDescription>
+              {authMode === "login" ? "Access your AI Journal account" : "Create a new AI Journal account"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {authError && <p className="text-sm text-destructive">{authError}</p>}
+            {authMode === "signup" && (
+              <div className="space-y-2">
+                <Label htmlFor="nickname">Nickname (optional)</Label>
+                <Input
+                  id="nickname"
+                  value={authNickname}
+                  onChange={(e) => setAuthNickname(e.target.value)}
+                  placeholder="Your display name"
+                />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={authEmail}
+                onChange={(e) => setAuthEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={authPassword}
+                onChange={(e) => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={async () => {
+                  try {
+                    setAuthBusy(true)
+                    setAuthError(null)
+                    if (authMode === "login") {
+                      const res = await apiLogin({ email: authEmail, password: authPassword })
+                      try { localStorage.setItem("jwt_token", res.token) } catch {}
+                    } else {
+                      const res = await apiSignup({ email: authEmail, password: authPassword, nickname: authNickname || undefined })
+                      try { localStorage.setItem("jwt_token", res.token) } catch {}
+                    }
+                    router.push("/journal")
+                  } catch (e: any) {
+                    setAuthError(e?.message || "Authentication failed")
+                  } finally {
+                    setAuthBusy(false)
+                  }
+                }}
+                disabled={authBusy || !authEmail || !authPassword}
+                className="flex-1"
+              >
+                {authBusy ? (authMode === "login" ? "Logging in..." : "Signing up...") : (authMode === "login" ? "Log in" : "Sign up")}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAuthMode((m) => (m === "login" ? "signup" : "login"))}
+              >
+                {authMode === "login" ? "Create account" : "Have an account? Log in"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     )
   }

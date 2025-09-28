@@ -1,7 +1,7 @@
 "use client"
 
 import { useAuth } from "@/hooks/use-auth"
-import { useState } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -29,56 +29,16 @@ import { MonthlyReport } from "@/components/monthly-report"
 import { PersonalInsights } from "@/components/personal-insights"
 import { GrowthRecommendations } from "@/components/growth-recommendations"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts"
+import { getWeeklyReport } from "@/lib/api"
 
-const trendData = [
-  {
-    date: "Jan 1",
-    aiMood: 6.2,
-    selfReported: null,
-    context: "New year reflection",
-    aiProductivity: 7.1,
-    aiSentiment: 0.3,
-  },
-  { date: "Jan 2", aiMood: 7.1, selfReported: 7, context: "Work achievement", aiProductivity: 8.2, aiSentiment: 0.7 },
-  {
-    date: "Jan 3",
-    aiMood: 5.8,
-    selfReported: null,
-    context: "Stress indicators",
-    aiProductivity: 5.5,
-    aiSentiment: -0.2,
-  },
-  { date: "Jan 4", aiMood: 8.2, selfReported: 8, context: "Family time", aiProductivity: 6.8, aiSentiment: 0.8 },
-  { date: "Jan 5", aiMood: 6.9, selfReported: null, context: "Routine day", aiProductivity: 7.3, aiSentiment: 0.1 },
-  { date: "Jan 6", aiMood: 4.5, selfReported: 5, context: "Work pressure", aiProductivity: 4.2, aiSentiment: -0.5 },
-  { date: "Jan 7", aiMood: 7.8, selfReported: 8, context: "Weekend relaxation", aiProductivity: 6.1, aiSentiment: 0.6 },
-]
-
-const previousWeekData = [
-  { date: "Dec 25", aiMood: 8.5, context: "Holiday joy", aiProductivity: 5.0, aiSentiment: 0.9 },
-  { date: "Dec 26", aiMood: 7.2, context: "Post-holiday calm", aiProductivity: 6.2, aiSentiment: 0.4 },
-  { date: "Dec 27", aiMood: 6.8, context: "Back to routine", aiProductivity: 7.1, aiSentiment: 0.2 },
-  { date: "Dec 28", aiMood: 5.9, context: "Work stress", aiProductivity: 8.3, aiSentiment: -0.1 },
-  { date: "Dec 29", aiMood: 7.1, context: "Planning ahead", aiProductivity: 7.8, aiSentiment: 0.3 },
-  { date: "Dec 30", aiMood: 8.0, context: "Year-end reflection", aiProductivity: 6.5, aiSentiment: 0.7 },
-  { date: "Dec 31", aiMood: 8.8, context: "New year excitement", aiProductivity: 4.8, aiSentiment: 0.8 },
-]
-
-const weeklyAverages = {
-  currentWeek: {
-    aiMood: trendData.reduce((sum, day) => sum + day.aiMood, 0) / trendData.length,
-    selfReported:
-      trendData.filter((day) => day.selfReported !== null).reduce((sum, day) => sum + (day.selfReported || 0), 0) /
-      trendData.filter((day) => day.selfReported !== null).length,
-    aiProductivity: trendData.reduce((sum, day) => sum + day.aiProductivity, 0) / trendData.length,
-    aiSentiment: trendData.reduce((sum, day) => sum + day.aiSentiment, 0) / trendData.length,
-  },
-  previousWeek: {
-    aiMood: previousWeekData.reduce((sum, day) => sum + day.aiMood, 0) / previousWeekData.length,
-    aiProductivity: previousWeekData.reduce((sum, day) => sum + day.aiProductivity, 0) / previousWeekData.length,
-    aiSentiment: previousWeekData.reduce((sum, day) => sum + day.aiSentiment, 0) / previousWeekData.length,
-  },
-}
+type TrendRow = {
+  context: ReactNode;
+  date: string;
+  aiMood: number | null;
+  aiProductivity: number | null;
+  selfReported?: number | null;
+  aiSentiment?: number | null;
+};
 
 export default function ReportsPage() {
   const { isAuthenticated, isLoading } = useAuth()
@@ -88,9 +48,64 @@ export default function ReportsPage() {
   const [showComparison, setShowComparison] = useState(false)
   const [comparisonRange, setComparisonRange] = useState([7])
   const [showDailyInsights, setShowDailyInsights] = useState(false)
+  const [trendData, setTrendData] = useState<TrendRow[]>([])
+  const [previousWeekData, setPreviousWeekData] = useState<TrendRow[]>([])
 
-  const currentWeekAvg = trendData.reduce((sum, day) => sum + day.aiMood, 0) / trendData.length
-  const previousWeekAvg = previousWeekData.reduce((sum, day) => sum + day.aiMood, 0) / previousWeekData.length
+  useEffect(() => {
+    let cancelled = false
+    const fetchTrends = async () => {
+      try {
+        const today = new Date()
+        const endStr = today.toISOString().slice(0, 10)
+        const prevEnd = new Date(today)
+        prevEnd.setDate(prevEnd.getDate() - 7)
+        const prevEndStr = prevEnd.toISOString().slice(0, 10)
+        const [curr, prev] = await Promise.all([
+          getWeeklyReport(endStr),
+          getWeeklyReport(prevEndStr),
+        ])
+        if (cancelled) return
+        setTrendData((curr.trends || []).map((d: any) => ({
+          date: String(d.date).slice(0,10),
+          aiMood: d.avg_ai_mood ?? d.avg_mood ?? null,
+          aiProductivity: d.avg_ai_productivity ?? null,
+          selfReported: null,
+          aiSentiment: null,
+        })))
+        setPreviousWeekData((prev.trends || []).map((d: any) => ({
+          date: String(d.date).slice(0,10),
+          aiMood: d.avg_ai_mood ?? d.avg_mood ?? null,
+          aiProductivity: d.avg_ai_productivity ?? null,
+          selfReported: null,
+          aiSentiment: null,
+        })))
+      } catch {
+        if (cancelled) return
+        setTrendData([])
+        setPreviousWeekData([])
+      }
+    }
+    fetchTrends()
+    return () => { cancelled = true }
+  }, [])
+
+const safeAvg = (arr: number[]): number => (arr.length ? arr.reduce((a,b)=>a+b,0) / arr.length : 0)
+const weeklyAverages = {
+  currentWeek: {
+    aiMood: safeAvg(trendData.map(d => d.aiMood ?? 0)),
+    selfReported: NaN as any,
+    aiProductivity: safeAvg(trendData.map(d => d.aiProductivity ?? 0)),
+    aiSentiment: safeAvg(trendData.map(d => d.aiSentiment ?? 0)),
+  },
+  previousWeek: {
+    aiMood: safeAvg(previousWeekData.map(d => d.aiMood ?? 0)),
+    aiProductivity: safeAvg(previousWeekData.map(d => d.aiProductivity ?? 0)),
+    aiSentiment: safeAvg(previousWeekData.map(d => d.aiSentiment ?? 0)),
+  },
+}
+
+  const currentWeekAvg = trendData.length ? (trendData.reduce((sum, day) => sum + (day.aiMood || 0), 0) / trendData.length) : 0
+  const previousWeekAvg = previousWeekData.length ? (previousWeekData.reduce((sum, day) => sum + (day.aiMood || 0), 0) / previousWeekData.length) : 0
   const weeklyChange = currentWeekAvg - previousWeekAvg
   const changePercentage = ((weeklyChange / previousWeekAvg) * 100).toFixed(1)
 
@@ -101,8 +116,8 @@ export default function ReportsPage() {
   }
 
   const getSpikesAndDips = () => {
-    const spikes = trendData.filter((day) => day.aiMood > currentWeekAvg + 1)
-    const dips = trendData.filter((day) => day.aiMood < currentWeekAvg - 1)
+    const spikes = trendData.filter((day) => (day.aiMood ?? 0) > currentWeekAvg + 1)
+    const dips = trendData.filter((day) => (day.aiMood ?? 0) < currentWeekAvg - 1)
     return { spikes, dips }
   }
 
@@ -357,18 +372,18 @@ export default function ReportsPage() {
                   <Tooltip
                     content={({ active, payload, label }) => {
                       if (active && payload && payload.length) {
-                        const data = payload[0].payload
-                        const sentimentDisplay = getSentimentDisplay(data.aiSentiment)
+                        const data = payload[0].payload as any
+                        const sentimentDisplay = getSentimentDisplay((data.aiSentiment ?? 0) as number)
                         return (
                           <div className="bg-background border rounded-lg p-3 shadow-lg">
                             <p className="font-medium">{label}</p>
                             <p className="text-primary">AI Mood: {payload[0].value}/10</p>
-                            {data.selfReported && (
+                            {typeof data.selfReported === 'number' && (
                               <p className="text-blue-500">Self-Reported: {data.selfReported}/10</p>
                             )}
                             {showDailyInsights && (
                               <>
-                                <p className="text-green-600">AI Productivity: {data.aiProductivity}/10</p>
+                                <p className="text-green-600">AI Productivity: {(data.aiProductivity ?? 0)}/10</p>
                                 <p className={sentimentDisplay.color}>
                                   AI Sentiment: {sentimentDisplay.label} ({data.aiSentiment.toFixed(2)})
                                 </p>
@@ -436,21 +451,21 @@ export default function ReportsPage() {
                 <CardContent>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {trendData.map((day, index) => {
-                      const sentimentDisplay = getSentimentDisplay(day.aiSentiment)
+                      const sentimentDisplay = getSentimentDisplay((day.aiSentiment ?? 0) as number)
                       return (
                         <div key={index} className={`p-4 rounded-lg border ${sentimentDisplay.bg}`}>
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-medium text-sm">{day.date}</span>
                             <div className="flex items-center gap-1">
                               <Heart className="w-4 h-4 text-primary" />
-                              <span className="text-sm">{day.aiMood.toFixed(1)}</span>
+                              <span className="text-sm">{(day.aiMood ?? 0).toFixed(1)}</span>
                             </div>
                           </div>
                           <div className="space-y-2 text-xs">
                             <div className="flex items-center justify-between">
                               <span className="text-muted-foreground">Productivity:</span>
                               <Badge variant="outline" className="text-xs">
-                                {day.aiProductivity.toFixed(1)}/10
+                                {(day.aiProductivity ?? 0).toFixed(1)}/10
                               </Badge>
                             </div>
                             <div className="flex items-center justify-between">
@@ -583,7 +598,7 @@ export default function ReportsPage() {
         {/* Report Content */}
         <Tabs defaultValue="summary" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
+            <TabsTrigger value="summary">Overview</TabsTrigger>
             <TabsTrigger value="insights">Personal Insights</TabsTrigger>
             <TabsTrigger value="growth">Growth Analysis</TabsTrigger>
             <TabsTrigger value="recommendations">Recommendations</TabsTrigger>

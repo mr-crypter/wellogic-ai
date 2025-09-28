@@ -7,10 +7,9 @@ import { analyzeSentimentHeuristic } from "../services/sentiment.js";
 import { embedText, generateSummaryWithGemini, parseAiScoresFromText, chunkTextSmart, cosineSimilarity, extractMetadataWithGemini } from "../services/aiService.js";
 import { getUserProfile } from "../models/userProfiles.js";
 import { listRecentNotesByUser } from "../models/notes.js";
-import { createSummary } from "../models/summaries.js";
 import { AuthenticatedRequest } from "../middleware/auth.js";
 import { query } from "../models/db.js";
-// Removed automatic AI summary generation; summaries can be requested via /api/ai/summary
+// Automatic AI summary storage removed; use /api/ai/suggestions for companion-style actions
 
 export async function postNote(req: AuthenticatedRequest, res: Response) {
 	try {
@@ -75,7 +74,7 @@ export async function postNote(req: AuthenticatedRequest, res: Response) {
                 const profile = await getUserProfile(userId).catch(() => null);
                 const persona = profile?.preferences ? JSON.stringify(profile.preferences, null, 2) : undefined;
 
-                // Generate summary with Gemini (short, structured prompt) using context + sentiment + persona
+                // Generate short analysis text to derive scores (still needed for AI metrics)
                 const geminiText = await generateSummaryWithGemini({ content, recentContext, sentimentHints, persona });
                 const { mood: ai_mood, productivity: ai_prod } = parseAiScoresFromText(geminiText);
 
@@ -83,7 +82,7 @@ export async function postNote(req: AuthenticatedRequest, res: Response) {
                 const meta = await extractMetadataWithGemini({ content, recentContext, persona }).catch(() => ({ mood: null, productivity: null, tags: null, sentiment: null }));
 
 				// Persist in parallel: embedding upsert, AI metrics, and cached summary
-				await Promise.all([
+                await Promise.all([
 					upsertNoteEmbedding({ note_id: note.id, user_id: userId, embedding: noteEmbedding }),
                     insertNoteAiMetric({
 						note_id: note.id,
@@ -94,8 +93,7 @@ export async function postNote(req: AuthenticatedRequest, res: Response) {
                         sentiment_emotion: meta.sentiment?.emotion ?? sentimentHints.emotion,
                         sentiment_confidence: meta.sentiment?.confidence ?? sentimentHints.confidence,
                         tags: meta.tags ?? null
-					}),
-					createSummary({ note_id: note.id, ai_summary: geminiText })
+                    })
 				]);
 
                 // Auto-create moods row if user omitted scores but AI inferred them

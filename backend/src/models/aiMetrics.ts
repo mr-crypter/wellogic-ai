@@ -49,7 +49,7 @@ export interface DailyAiAveragesRow {
 
 export async function getDailyAiAverages({ days = 7, user_id }: { days?: number; user_id?: number | null }): Promise<DailyAiAveragesRow[]> {
     const result = await query<any>(
-        `WITH window AS (
+        `WITH days AS (
             SELECT generate_series((CURRENT_DATE - ($1::int - 1) * interval '1 day')::date, CURRENT_DATE::date, interval '1 day')::date AS date
         ), day_ai AS (
             SELECT DATE(n.created_at) AS date,
@@ -60,12 +60,12 @@ export async function getDailyAiAverages({ days = 7, user_id }: { days?: number;
             WHERE ($2::int IS NULL OR m.user_id = $2::int)
             GROUP BY DATE(n.created_at)
         )
-        SELECT w.date,
+        SELECT d.date,
                COALESCE(da.avg_ai_mood, NULL) AS avg_ai_mood,
                COALESCE(da.avg_ai_productivity, NULL) AS avg_ai_productivity
-        FROM window w
-        LEFT JOIN day_ai da ON da.date = w.date
-        ORDER BY w.date ASC`,
+        FROM days d
+        LEFT JOIN day_ai da ON da.date = d.date
+        ORDER BY d.date ASC`,
         [days, user_id ?? null]
     );
     return result.rows.map((r: any) => ({

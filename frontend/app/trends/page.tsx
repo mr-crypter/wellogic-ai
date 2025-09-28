@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarDays, TrendingUp, BarChart3, PieChart, Activity } from "lucide-react"
 import { MoodTrendsChart } from "@/components/mood-trends-chart"
+import { getNotesStats, getNoteStreaks } from "@/lib/api"
 import { WritingFrequencyChart } from "@/components/writing-frequency-chart"
 import { TopicsAnalysisChart } from "@/components/topics-analysis-chart"
 import { MoodDistributionChart } from "@/components/mood-distribution-chart"
@@ -15,6 +16,10 @@ import { WritingStreakChart } from "@/components/writing-streak-chart"
 export default function TrendsPage() {
   const [timeRange, setTimeRange] = useState("30d")
   const [selectedMetric, setSelectedMetric] = useState("mood")
+  const [totalEntries, setTotalEntries] = useState<string>("-")
+  const [streak, setStreak] = useState<string>("-")
+  const [avgMood, setAvgMood] = useState<string>("-")
+  const [topTag, setTopTag] = useState<string>("-")
 
   const timeRanges = [
     { value: "7d", label: "Last 7 days" },
@@ -23,35 +28,38 @@ export default function TrendsPage() {
     { value: "1y", label: "Last year" },
   ]
 
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const days = (() => {
+          const m = timeRange.match(/\d+/)
+          const n = m ? parseInt(m[0], 10) : 30
+          return Math.min(365, Math.max(1, n))
+        })()
+        const [stats, streaks] = await Promise.all([
+          getNotesStats(days),
+          getNoteStreaks(),
+        ])
+        if (cancelled) return
+        const total = (stats.data || []).reduce((acc, d) => acc + Number(d.note_count || 0), 0)
+        setTotalEntries(String(total))
+        setStreak(`${streaks.current_streak} days`)
+      } catch {
+        if (cancelled) return
+        setTotalEntries("-")
+        setStreak("-")
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [timeRange])
+
   const keyMetrics = [
-    {
-      title: "Total Entries",
-      value: "127",
-      change: "+12%",
-      trend: "up",
-      icon: BarChart3,
-    },
-    {
-      title: "Writing Streak",
-      value: "14 days",
-      change: "+2 days",
-      trend: "up",
-      icon: Activity,
-    },
-    {
-      title: "Avg. Mood Score",
-      value: "7.2/10",
-      change: "+0.8",
-      trend: "up",
-      icon: TrendingUp,
-    },
-    {
-      title: "Most Common Tag",
-      value: "reflection",
-      change: "32 entries",
-      trend: "neutral",
-      icon: PieChart,
-    },
+    { title: "Total Entries", value: totalEntries, change: "", trend: "neutral", icon: BarChart3 },
+    { title: "Writing Streak", value: streak, change: "", trend: "neutral", icon: Activity },
+    { title: "Avg. Mood Score", value: avgMood, change: "", trend: "neutral", icon: TrendingUp },
+    { title: "Most Common Tag", value: topTag, change: "", trend: "neutral", icon: PieChart },
   ]
 
   return (

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { generateSummaryWithGemini } from "../services/aiService.js";
+import { generateSummaryWithGemini, generateSuggestionsWithGemini } from "../services/aiService.js";
 
 export async function postAiSummary(req: Request, res: Response) {
 	try {
@@ -11,6 +11,18 @@ export async function postAiSummary(req: Request, res: Response) {
 		console.error(err);
 		return res.status(500).json({ error: err?.message || "Internal server error" });
 	}
+}
+
+export async function postAiSuggestions(req: Request, res: Response) {
+    try {
+        const { content, mood, productivity, recentContext, persona } = (req.body || {}) as { content?: string; mood?: number; productivity?: number; recentContext?: string; persona?: string };
+        if (!content) return res.status(400).json({ error: "content is required" });
+        const suggestions = await generateSuggestionsWithGemini({ content, mood, productivity, recentContext, persona });
+        return res.json({ suggestions });
+    } catch (err: any) {
+        console.error(err);
+        return res.status(500).json({ error: err?.message || "Internal server error" });
+    }
 }
 
 

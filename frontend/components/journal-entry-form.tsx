@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { X, Save, Sparkles, Tag } from "lucide-react"
 import { MoodSelector } from "@/components/mood-selector"
-import { getAiSummary, createNote } from "@/lib/api"
+import { getAiSuggestions, createNote } from "@/lib/api"
 
 interface JournalEntryFormProps {
   onClose: () => void
@@ -20,7 +20,7 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
   const [content, setContent] = useState("")
   const [mood, setMood] = useState<string>("")
   const [productivity, setProductivity] = useState<string>("")
-  const [aiSummary, setAiSummary] = useState<string>("")
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState("")
@@ -60,12 +60,12 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
     }
   }
 
-  const handleAiSummary = async () => {
+  const handleAiSuggestions = async () => {
     try {
       const moodScore = Number(mood) || undefined
       const productivityScore = Number(productivity) || undefined
-      const res = await getAiSummary({ content, mood: moodScore, productivity: productivityScore })
-      setAiSummary(res.summary)
+      const res = await getAiSuggestions({ content, mood: moodScore, productivity: productivityScore })
+      setAiSuggestions(res.suggestions || [])
     } catch (e) {
       console.error(e)
     }
@@ -159,18 +159,22 @@ export function JournalEntryForm({ onClose }: JournalEntryFormProps) {
 
         <Separator />
 
-        {/* AI Summary */}
+        {/* AI Suggestions */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">AI Summary</label>
-            <Button variant="outline" size="sm" onClick={handleAiSummary} disabled={!content.trim()}>
-              <Sparkles className="w-4 h-4 mr-2" /> Summarize
+            <label className="text-sm font-medium">AI Suggestions</label>
+            <Button variant="outline" size="sm" onClick={handleAiSuggestions} disabled={!content.trim()}>
+              <Sparkles className="w-4 h-4 mr-2" /> Suggest next steps
             </Button>
           </div>
-          {aiSummary && (
+          {aiSuggestions.length > 0 && (
             <Card className="border-dashed">
               <CardContent className="pt-4 text-sm text-muted-foreground whitespace-pre-wrap">
-                {aiSummary}
+                <ul className="list-disc pl-5 space-y-1">
+                  {aiSuggestions.map((s, i) => (
+                    <li key={i}>{s}</li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}

@@ -16,7 +16,6 @@ interface JournalEntry {
   mood: string
   tags: string[]
   createdAt: string
-  aiInsights?: string[]
 }
 
 interface JournalEntryListProps {
@@ -54,7 +53,6 @@ export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryList
           createdAt: n.created_at,
           mood: (n.latest_mood_score ?? undefined) ? "content" : "neutral",
           tags: [],
-          aiInsights: n.latest_summary ? [n.latest_summary] : [],
         }))
         setEntries(mapped)
       } catch (e) {
@@ -197,22 +195,7 @@ export function JournalEntryList({ searchQuery, selectedTags }: JournalEntryList
               </div>
             )}
 
-            {entry.aiInsights && entry.aiInsights.length > 0 && (
-              <>
-                <Separator className="my-4" />
-                <div className="space-y-2">
-                  <h4 className="text-sm font-medium text-muted-foreground">AI Insights</h4>
-                  <div className="space-y-1">
-                    {entry.aiInsights.map((insight, index) => (
-                      <div key={index} className="flex items-center gap-2 text-sm">
-                        <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-                        <span className="text-muted-foreground">{insight}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
+            {/* No AI summary display; suggestions are shown in the entry form when requested */}
           </CardContent>
         </Card>
       ))}

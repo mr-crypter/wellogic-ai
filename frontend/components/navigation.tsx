@@ -24,7 +24,7 @@ const navigation = [
     name: "Reports",
     href: "/reports",
     icon: FileText,
-    description: "AI-generated insights and summaries",
+    description: "AI-generated insights and suggestions",
   },
 ]
 
@@ -34,8 +34,16 @@ export function Navigation() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem("jwt_token")
-    setIsAuthenticated(!!token)
+    const updateAuth = () => {
+      const token = localStorage.getItem("jwt_token")
+      setIsAuthenticated(!!token)
+    }
+    updateAuth()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "jwt_token") updateAuth()
+    }
+    window.addEventListener("storage", onStorage)
+    return () => window.removeEventListener("storage", onStorage)
   }, [])
 
   const handleLogout = () => {

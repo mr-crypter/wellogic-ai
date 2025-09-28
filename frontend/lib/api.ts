@@ -26,6 +26,17 @@ export async function getAiSummary(params: { content: string; mood?: number; pro
 	return (await res.json()) as { summary: string };
 }
 
+export async function getAiSuggestions(params: { content: string; mood?: number; productivity?: number; }): Promise<{ suggestions: string[] }> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/ai/suggestions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(params)
+  });
+  if (!res.ok) throw new Error(`AI suggestions failed: ${res.status}`);
+  return (await res.json()) as { suggestions: string[] };
+}
+
 // Auth API
 export async function apiLogin(params: { email: string; password: string }) {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -96,6 +107,7 @@ export interface MoodTrendPoint {
   avg_ai_mood?: number | null;
   avg_ai_productivity?: number | null;
 }
+// (Removed invalid/duplicate code. This block was a fragment of a duplicate getWeeklyReport function and is not needed.)
 
 export async function getMoodTrends(range: string): Promise<{ range: number; data: MoodTrendPoint[] }> {
   const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
@@ -105,6 +117,26 @@ export async function getMoodTrends(range: string): Promise<{ range: number; dat
   });
   if (!res.ok) throw new Error(`Get mood trends failed: ${res.status}`);
   return (await res.json()) as { range: number; data: MoodTrendPoint[] };
+}
+
+export async function getNotesStats(range: number): Promise<{ range: number; data: Array<{ date: string; note_count: number; word_count: number }> }>{
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/v1/notes/stats?range=${encodeURIComponent(String(range))}` ,{
+    method: "GET",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Get notes stats failed: ${res.status}`);
+  return await res.json();
+}
+
+export async function getNoteStreaks(): Promise<{ current_streak: number; longest_streak: number; recent: Array<{ date: string; has_entry: boolean }> }>{
+  const token = typeof window !== "undefined" ? localStorage.getItem("jwt_token") : null;
+  const res = await fetch(`${API_BASE}/api/v1/notes/streaks`, {
+    method: "GET",
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) throw new Error(`Get note streaks failed: ${res.status}`);
+  return await res.json();
 }
 
 export async function getWeeklyReport(end?: string): Promise<any> {
