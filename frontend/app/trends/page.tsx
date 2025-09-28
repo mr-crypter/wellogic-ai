@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CalendarDays, TrendingUp, BarChart3, PieChart, Activity } from "lucide-react"
 import { MoodTrendsChart } from "@/components/mood-trends-chart"
-import { getNotesStats, getNoteStreaks } from "@/lib/api"
+import { getNotesStats, getNoteStreaks, getMoodTrends, getDailyReport } from "@/lib/api"
 import { WritingFrequencyChart } from "@/components/writing-frequency-chart"
 import { TopicsAnalysisChart } from "@/components/topics-analysis-chart"
 import { MoodDistributionChart } from "@/components/mood-distribution-chart"
@@ -17,9 +17,11 @@ export default function TrendsPage() {
   const [timeRange, setTimeRange] = useState("30d")
   const [selectedMetric, setSelectedMetric] = useState("mood")
   const [totalEntries, setTotalEntries] = useState<string>("-")
+  const [thisWeek, setThisWeek] = useState<string>("-")
   const [streak, setStreak] = useState<string>("-")
   const [avgMood, setAvgMood] = useState<string>("-")
   const [topTag, setTopTag] = useState<string>("-")
+  const [history, setHistory] = useState<Array<{ date: string; count: number; snippet: string }>>([])
 
   const timeRanges = [
     { value: "7d", label: "Last 7 days" },
@@ -37,18 +39,58 @@ export default function TrendsPage() {
           const n = m ? parseInt(m[0], 10) : 30
           return Math.min(365, Math.max(1, n))
         })()
-        const [stats, streaks] = await Promise.all([
+        const [stats, streaks, trends, weekStats] = await Promise.all([
           getNotesStats(days),
           getNoteStreaks(),
+          getMoodTrends(timeRange),
+          getNotesStats(7),
         ])
         if (cancelled) return
         const total = (stats.data || []).reduce((acc, d) => acc + Number(d.note_count || 0), 0)
         setTotalEntries(String(total))
+        const weekTotal = (weekStats.data || []).reduce((acc: number, d: any) => acc + Number(d.note_count || 0), 0)
+        setThisWeek(String(weekTotal))
         setStreak(`${streaks.current_streak} days`)
+        const moods: number[] = (trends.data || []).map((d: any) => (d.avg_ai_mood ?? d.avg_mood ?? null)).filter((x: any) => typeof x === 'number')
+        const avg = moods.length ? (moods.reduce((a: number,b: number)=>a+b,0) / moods.length) : 0
+        setAvgMood(avg ? avg.toFixed(1) : "-")
+        // compute top tag from recent days via daily reports
+        const today = new Date()
+        const dates: string[] = []
+        for (let i = 0; i < Math.min(days, 30); i++) { // cap to 30 for perf
+          const d = new Date(today)
+          d.setDate(d.getDate() - i)
+          dates.push(d.toISOString().slice(0,10))
+        }
+        const reports = await Promise.all(dates.map((d) => getDailyReport(d).catch(() => null)))
+        if (cancelled) return
+        const tagCount: Record<string, number> = {}
+        const historyRows: Array<{ date: string; count: number; snippet: string }> = []
+        for (const rep of reports) {
+          const items = rep?.items || []
+          if (rep?.date) {
+            historyRows.push({
+              date: String(rep.date).slice(0,10),
+              count: items.length,
+              snippet: items[0]?.note?.content ? String(items[0].note.content).slice(0,120) : "",
+            })
+          }
+          for (const it of items) {
+            const tags: string[] = it.tags || []
+            for (const t of tags) tagCount[t] = (tagCount[t] || 0) + 1
+          }
+        }
+        const top = Object.entries(tagCount).sort((a,b)=>b[1]-a[1])[0]?.[0] || "-"
+        setTopTag(top)
+        setHistory(historyRows.filter(r => r.count > 0).sort((a,b) => (a.date < b.date ? 1 : -1)).slice(0, 14))
       } catch {
         if (cancelled) return
         setTotalEntries("-")
+        setThisWeek("-")
         setStreak("-")
+        setAvgMood("-")
+        setTopTag("-")
+        setHistory([])
       }
     }
     load()
@@ -57,6 +99,7 @@ export default function TrendsPage() {
 
   const keyMetrics = [
     { title: "Total Entries", value: totalEntries, change: "", trend: "neutral", icon: BarChart3 },
+    { title: "This Week", value: thisWeek, change: "", trend: "neutral", icon: Activity },
     { title: "Writing Streak", value: streak, change: "", trend: "neutral", icon: Activity },
     { title: "Avg. Mood Score", value: avgMood, change: "", trend: "neutral", icon: TrendingUp },
     { title: "Most Common Tag", value: topTag, change: "", trend: "neutral", icon: PieChart },
@@ -182,6 +225,34 @@ export default function TrendsPage() {
             <WritingStreakChart timeRange={timeRange} />
           </TabsContent>
         </Tabs>
+        {/* Recent History */}
+        <div className="mt-10">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent History</CardTitle>
+              <CardDescription>Past entries by day</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {history.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No recent entries.</div>
+              ) : (
+                <div className="space-y-3">
+                  {history.map((h) => (
+                    <div key={h.date} className="flex items-center justify-between p-3 rounded-lg border">
+                      <div>
+                        <div className="text-sm font-medium">{new Date(h.date).toLocaleDateString()}</div>
+                        {h.snippet && (
+                          <div className="text-xs text-muted-foreground mt-1 line-clamp-1">{h.snippet}</div>
+                        )}
+                      </div>
+                      <Badge variant="outline">{h.count} entr{h.count === 1 ? "y" : "ies"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )
